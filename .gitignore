@@ -1,0 +1,29 @@
+# Variables de entorno
+.env
+
+# Entorno virtual
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Base de datos local
+*.db
+*.sqlite3
+
+# Tests y caché
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Imágenes guardadas en local (modo sin Cloudinary)
+uploads/
