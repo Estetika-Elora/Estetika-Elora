@@ -10,6 +10,8 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 from app.domain.errores import (
+    CredencialesInvalidas,
+    CuentaBloqueada,
     DatosInvalidos,
     DemasiadasSolicitudes,
     ErrorDominio,
@@ -43,6 +45,8 @@ RESPUESTAS_ERROR: dict[int | str, dict[str, Any]] = {
 
 _CODIGOS_HTTP = {
     DatosInvalidos: status.HTTP_400_BAD_REQUEST,
+    CredencialesInvalidas: status.HTTP_401_UNAUTHORIZED,
+    CuentaBloqueada: status.HTTP_423_LOCKED,
     OperacionNoPermitida: status.HTTP_403_FORBIDDEN,
     RecursoNoEncontrado: status.HTTP_404_NOT_FOUND,
     RecursoDuplicado: status.HTTP_409_CONFLICT,
