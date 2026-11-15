@@ -11,8 +11,10 @@ from pydantic import BaseModel
 
 from app.domain.errores import (
     DatosInvalidos,
+    DemasiadasSolicitudes,
     ErrorDominio,
     OperacionNoPermitida,
+    RecursoDuplicado,
     RecursoNoEncontrado,
     ServicioExternoNoDisponible,
 )
@@ -43,6 +45,8 @@ _CODIGOS_HTTP = {
     DatosInvalidos: status.HTTP_400_BAD_REQUEST,
     OperacionNoPermitida: status.HTTP_403_FORBIDDEN,
     RecursoNoEncontrado: status.HTTP_404_NOT_FOUND,
+    RecursoDuplicado: status.HTTP_409_CONFLICT,
+    DemasiadasSolicitudes: status.HTTP_429_TOO_MANY_REQUESTS,
     ServicioExternoNoDisponible: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 

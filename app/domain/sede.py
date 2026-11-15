@@ -1,21 +1,10 @@
 """Dominio de Sede (HU-16): schemas de entrada y salida con sus validaciones."""
 
-import re
-
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from app.domain.estados import EstadoRegistro
 from app.domain.validaciones import limpiar_texto
-
-_PATRON_TELEFONO = re.compile(r"^\d{10}$")
-
-
-def _validar_telefono(valor: str) -> str:
-    """Teléfono colombiano de 10 dígitos (celular o fijo con indicativo 60X)."""
-    limpio = re.sub(r"[\s\-()]", "", valor)
-    if not _PATRON_TELEFONO.match(limpio):
-        raise ValueError("El teléfono debe tener 10 dígitos")
-    return limpio
+from app.domain.validaciones import validar_telefono as _validar_telefono
 
 
 class SedeCreate(BaseModel):
