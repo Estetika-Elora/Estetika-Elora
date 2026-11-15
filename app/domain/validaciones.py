@@ -1,5 +1,17 @@
 """Validaciones reutilizables por los schemas del dominio."""
 
+import re
+
+_PATRON_TELEFONO = re.compile(r"^\d{10}$")
+
+
+def validar_telefono(valor: str) -> str:
+    """Teléfono colombiano de 10 dígitos (celular o fijo con indicativo 60X)."""
+    limpio = re.sub(r"[\s\-()]", "", valor)
+    if not _PATRON_TELEFONO.match(limpio):
+        raise ValueError("El teléfono debe tener 10 dígitos")
+    return limpio
+
 
 def limpiar_texto(valor: str, campo: str, minimo: int, maximo: int) -> str:
     """Quita espacios sobrantes y valida la longitud del texto.
