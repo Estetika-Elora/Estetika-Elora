@@ -74,6 +74,8 @@ class UsuarioService:
                 "contrasena_hash": seguridad_service.hashear_contrasena(datos.contrasena),
                 "rol": Rol.USUARIO,
                 "estado": EstadoCuenta.PENDING_VERIFICATION,
+                "intentos_fallidos": 0,
+                "bloqueado_hasta": None,
                 "fecha_registro": self._reloj(),
             }
         )

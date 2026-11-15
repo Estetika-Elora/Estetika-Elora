@@ -33,6 +33,14 @@ class RecursoDuplicado(ErrorDominio):
     """El recurso ya existe o ya está en el estado pedido (p. ej. correo registrado, RN-01)."""
 
 
+class CredencialesInvalidas(ErrorDominio):
+    """El correo o la contraseña no coinciden con una cuenta."""
+
+
+class CuentaBloqueada(ErrorDominio):
+    """La cuenta está bloqueada temporalmente por intentos fallidos (RN-03)."""
+
+
 class DemasiadasSolicitudes(ErrorDominio):
     """Se repitió una solicitud antes del tiempo de espera (p. ej. reenviar el correo)."""
 
