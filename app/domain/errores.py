@@ -29,5 +29,13 @@ class RecursoNoEncontrado(ErrorDominio):
     """El recurso solicitado no existe o no pertenece a la empresa indicada."""
 
 
+class RecursoDuplicado(ErrorDominio):
+    """El recurso ya existe o ya está en el estado pedido (p. ej. correo registrado, RN-01)."""
+
+
+class DemasiadasSolicitudes(ErrorDominio):
+    """Se repitió una solicitud antes del tiempo de espera (p. ej. reenviar el correo)."""
+
+
 class ServicioExternoNoDisponible(ErrorDominio):
-    """Un servicio externo (mapas, almacenamiento) no respondió correctamente."""
+    """Un servicio externo (mapas, almacenamiento, correo) no respondió correctamente."""
