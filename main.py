@@ -9,13 +9,14 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
 
-from app.api import producto_router, sede_router, usuario_router  # noqa: E402
+from app.api import auth_router, producto_router, sede_router, usuario_router  # noqa: E402
 from app.api.respuestas import cuerpo_error, traducir_errores_validacion  # noqa: E402
 from app.service.almacenamiento_service import AlmacenamientoLocal  # noqa: E402
 
 app = FastAPI(title="Estetika-Elora")
 
 app.include_router(usuario_router.router)
+app.include_router(auth_router.router)
 app.include_router(sede_router.router)
 app.include_router(producto_router.router)
 
