@@ -1,4 +1,8 @@
-"""Endpoints de sedes (HU-16). Solo llaman al servicio y convierten errores en HTTP."""
+"""Endpoints de sedes (HU-16). Solo llaman al servicio y convierten errores en HTTP.
+
+Aquí también se arman los servicios de sedes y de disponibilidad (HU-23) y se conectan
+entre sí, para que guardar el horario de una sede (HU-17) regenere sus horarios.
+"""
 
 import os
 
@@ -7,11 +11,15 @@ from fastapi import APIRouter, status
 from app.api.respuestas import RESPUESTAS_ERROR, RespuestaApi, a_http
 from app.domain.errores import ErrorDominio
 from app.domain.sede import SedeCreate, SedeResponse, SedeUpdate
+from app.repository.bloque_horario_repository import bloque_horario_repository
 from app.repository.empresa_repository import empresa_repository
 from app.repository.sede_repository import sede_repository
+from app.repository.servicio_repository import servicio_repository
+from app.service.disponibilidad_service import DisponibilidadService
 from app.service.empresa_service import EmpresaService
 from app.service.mapas_service import MapasService
 from app.service.sede_service import SedeService
+from app.service.servicio_service import ServicioService
 
 router = APIRouter(prefix="/api/v1/empresas/{empresa_id}/sedes", tags=["Sedes (HU-16)"])
 
@@ -20,6 +28,10 @@ servicio = SedeService(
     EmpresaService(empresa_repository),
     MapasService(os.getenv("NOMINATIM_USER_AGENT", "EstetikaElora/0.1 (proyecto academico)")),
 )
+disponibilidad = DisponibilidadService(
+    servicio, ServicioService(servicio_repository), bloque_horario_repository
+)
+servicio.registrar_regenerador(disponibilidad.regenerar_sede)
 
 
 @router.post(

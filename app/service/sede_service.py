@@ -2,7 +2,10 @@
 
 - HU-16 · PRO-16: CRUD de sedes con dirección validada en el mapa.
 - HU-17 · PRO-17: horario de atención de la sede (se guarda en el campo `horario`).
+  Al guardarlo se regeneran los horarios disponibles de la sede (HU-23).
 """
+
+from typing import Callable
 
 from app.domain.errores import DatosInvalidos, RecursoNoEncontrado
 from app.domain.estados import EstadoRegistro
@@ -23,6 +26,7 @@ class SedeService:
         self._repositorio = repositorio
         self._empresas = empresa_service
         self._mapas = mapas_service
+        self._regenerador: Callable[[int], None] | None = None
 
     def crear(self, empresa_id: int, datos: SedeCreate) -> SedeResponse:
         self._empresas.verificar_aprobada(empresa_id)  # RN-07
@@ -90,11 +94,19 @@ class SedeService:
         sede = self._buscar(sede_id)
         return HorarioResponse(sede_id=sede_id, horario=sede.get("horario", []))
 
-    def regenerar_disponibilidad(self, sede_id: int) -> bool:
-        """API-I19: solicita regenerar los horarios disponibles de los servicios de la sede.
+    def registrar_regenerador(self, regenerador: Callable[[int], None]) -> None:
+        """Recibe la función de HU-23 que regenera los horarios de una sede.
 
-        La generación de bloques llega con HU-23; mientras tanto la solicitud se da por atendida.
+        Se conecta al armar los servicios (sede_router) para evitar una importación circular:
+        la disponibilidad también necesita leer el horario de la sede.
         """
+        self._regenerador = regenerador
+
+    def regenerar_disponibilidad(self, sede_id: int) -> bool:
+        """API-I19: regenera los horarios disponibles de los servicios de la sede."""
+        if self._regenerador is None:
+            return False
+        self._regenerador(sede_id)
         return True
 
     def _buscar(self, sede_id: int) -> dict:
