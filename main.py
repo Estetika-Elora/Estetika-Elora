@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa
 
 from app.api import (  # noqa: E402
     auth_router,
+    disponibilidad_router,
     horario_sede_router,
     producto_router,
     sede_router,
@@ -25,6 +26,7 @@ app.include_router(usuario_router.router)
 app.include_router(auth_router.router)
 app.include_router(sede_router.router)
 app.include_router(horario_sede_router.router)
+app.include_router(disponibilidad_router.router)
 app.include_router(producto_router.router)
 
 # Sin credenciales de Cloudinary las imágenes se guardan en local y se sirven en /uploads.
