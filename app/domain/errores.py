@@ -25,6 +25,10 @@ class OperacionNoPermitida(ErrorDominio):
     """La operación no está permitida en el estado actual (p. ej. empresa no aprobada)."""
 
 
+class PrecondicionNoCumplida(ErrorDominio):
+    """Los datos son válidos pero falta una condición previa (p. ej. la sede sin horario)."""
+
+
 class RecursoNoEncontrado(ErrorDominio):
     """El recurso solicitado no existe o no pertenece a la empresa indicada."""
 
