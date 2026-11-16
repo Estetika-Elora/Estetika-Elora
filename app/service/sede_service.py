@@ -1,7 +1,12 @@
-"""Servicio de sedes (HU-16 · PRO-16): CRUD de sedes con dirección validada en el mapa."""
+"""Servicio de sedes.
+
+- HU-16 · PRO-16: CRUD de sedes con dirección validada en el mapa.
+- HU-17 · PRO-17: horario de atención de la sede (se guarda en el campo `horario`).
+"""
 
 from app.domain.errores import DatosInvalidos, RecursoNoEncontrado
 from app.domain.estados import EstadoRegistro
+from app.domain.horario import HorarioResponse, HorarioUpdate, apertura_menor_que_cierre
 from app.domain.sede import SedeCreate, SedeResponse, SedeUpdate
 from app.repository.sede_repository import SedeRepository
 from app.service.empresa_service import EmpresaService
@@ -60,6 +65,43 @@ class SedeService:
         self._empresas.verificar_aprobada(empresa_id)  # RN-07
         self._buscar_de_empresa(empresa_id, sede_id)
         return SedeResponse.model_validate(self._repositorio.eliminar(sede_id))
+
+    def configurar_horario(self, sede_id: int, datos: HorarioUpdate) -> HorarioResponse:
+        """HU-17: guarda el horario de atención en la sede y reemplaza el anterior."""
+        sede = self._buscar(sede_id)
+        self._empresas.verificar_aprobada(sede["empresa_id"])
+        for franja in datos.horario:
+            if not apertura_menor_que_cierre(franja.apertura, franja.cierre):
+                raise DatosInvalidos(
+                    "La hora de apertura debe ser menor que la de cierre",
+                    {"dia": franja.dia.value, "apertura": franja.apertura, "cierre": franja.cierre},
+                )
+
+        horario = [franja.model_dump(mode="json") for franja in datos.horario]
+        self._repositorio.actualizar(sede_id, {"horario": horario})
+        return HorarioResponse(
+            sede_id=sede_id,
+            horario=horario,
+            disponibilidad_regenerada=self.regenerar_disponibilidad(sede_id),
+        )
+
+    def obtener_horario(self, sede_id: int) -> HorarioResponse:
+        """API-I17: horario de atención de la sede; lista vacía si no está configurado."""
+        sede = self._buscar(sede_id)
+        return HorarioResponse(sede_id=sede_id, horario=sede.get("horario", []))
+
+    def regenerar_disponibilidad(self, sede_id: int) -> bool:
+        """API-I19: solicita regenerar los horarios disponibles de los servicios de la sede.
+
+        La generación de bloques llega con HU-23; mientras tanto la solicitud se da por atendida.
+        """
+        return True
+
+    def _buscar(self, sede_id: int) -> dict:
+        sede = self._repositorio.obtener_por_id(sede_id)
+        if sede is None:
+            raise RecursoNoEncontrado("La sede no existe", {"sede_id": sede_id})
+        return sede
 
     def _buscar_de_empresa(self, empresa_id: int, sede_id: int) -> dict:
         """Una sede de otra empresa se trata como inexistente."""
