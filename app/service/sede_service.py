@@ -94,6 +94,10 @@ class SedeService:
         sede = self._buscar(sede_id)
         return HorarioResponse(sede_id=sede_id, horario=sede.get("horario", []))
 
+    def obtener_nombre(self, sede_id: int) -> str:
+        """Nombre de la sede para otros módulos (p. ej. la confirmación de una reserva)."""
+        return self._buscar(sede_id)["nombre"]
+
     def registrar_regenerador(self, regenerador: Callable[[int], None]) -> None:
         """Recibe la función de HU-23 que regenera los horarios de una sede.
 
