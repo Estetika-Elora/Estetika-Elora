@@ -64,3 +64,57 @@ def correo_activacion(destinatario: str, nombre: str, enlace: str, vigencia_hora
         html=html,
         texto=texto,
     )
+
+
+def correo_reserva_confirmada(
+    destinatario: str, nombre: str, reserva_id: int, sede: str, servicio: str, fecha: str, hora: str
+) -> Correo:
+    primer_nombre = nombre.split()[0]
+    filas = [("Reserva", f"#{reserva_id}"), ("Servicio", servicio), ("Sede", sede), ("Fecha", fecha), ("Hora", hora)]
+    filas_html = "".join(
+        f'<tr><td style="padding:6px 0;color:#888888;width:35%;">{escape(etiqueta)}</td>'
+        f'<td style="padding:6px 0;font-weight:bold;">{escape(valor)}</td></tr>'
+        for etiqueta, valor in filas
+    )
+
+    html = f"""\
+<!doctype html>
+<html lang="es">
+<body style="margin:0;padding:0;background:{COLOR_FONDO};font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{COLOR_FONDO};padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:{COLOR_MARCA};padding:24px;text-align:center;color:#ffffff;font-size:24px;font-weight:bold;letter-spacing:1px;">
+          Estetika Elora
+        </td></tr>
+        <tr><td style="padding:32px 32px 8px;color:#333333;font-size:16px;line-height:1.6;">
+          <p style="margin:0 0 16px;font-size:20px;font-weight:bold;color:{COLOR_MARCA_OSCURO};">¡Hola, {escape(primer_nombre)}!</p>
+          <p style="margin:0 0 16px;">Tu reserva quedó confirmada. Estos son los detalles:</p>
+        </td></tr>
+        <tr><td style="padding:0 32px 24px;color:#333333;font-size:15px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{filas_html}</table>
+        </td></tr>
+        <tr><td style="padding:0 32px 32px;color:#888888;font-size:14px;line-height:1.6;">
+          <p style="margin:0;">Te esperamos. Si no hiciste esta reserva, comunícate con nosotros.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+    detalle = "\n".join(f"{etiqueta}: {valor}" for etiqueta, valor in filas)
+    texto = (
+        f"¡Hola, {primer_nombre}!\n\n"
+        "Tu reserva quedó confirmada. Estos son los detalles:\n\n"
+        f"{detalle}\n\n"
+        "Te esperamos. Si no hiciste esta reserva, comunícate con nosotros."
+    )
+
+    return Correo(
+        destinatario=destinatario,
+        nombre_destinatario=nombre,
+        asunto=f"Reserva confirmada: {servicio} el {fecha} a las {hora}",
+        html=html,
+        texto=texto,
+    )
