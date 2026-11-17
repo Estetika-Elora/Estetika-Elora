@@ -132,6 +132,18 @@ class UsuarioService:
         self._enviar_enlace(usuario)
         return ReenvioResponse(correo=correo, vigencia_horas=self._vigencia_horas)
 
+    def obtener_cuenta(self, usuario_id: int) -> dict:
+        """API-I04: datos y estado de la cuenta para otros módulos (p. ej. reservas)."""
+        usuario = self._repositorio.obtener_por_id(usuario_id)
+        if usuario is None:
+            raise RecursoNoEncontrado("El usuario no existe", {"usuario_id": usuario_id})
+        return {
+            "usuario_id": usuario["usuario_id"],
+            "nombre": usuario["nombre"],
+            "correo": usuario["correo"],
+            "estado": usuario["estado"],
+        }
+
     def _verificar_correo_disponible(self, correo: str) -> None:
         existente = self._repositorio.obtener_por_correo(correo)
         if existente is None:

@@ -62,6 +62,19 @@ class DisponibilidadService:
         for servicio in self._servicios.listar_activos_de_sede(sede_id):
             self._generar_y_guardar(sede_id, servicio, horario, desde, hasta, ahora)
 
+    def listar_bloques(self, sede_id: int, servicio_id: int, fecha: date) -> dict:
+        """API-I03: bloques generados de un servicio en una sede para una fecha.
+
+        Devuelve {"nombre": str, "duracion_min": int, "horas": ["HH:MM", ...]} en orden.
+        """
+        servicio = self._servicios.obtener_ofrecido_en_sede(servicio_id, sede_id)
+        bloques = self._repositorio.listar(sede_id, servicio_id, fecha)
+        return {
+            "nombre": servicio["nombre"],
+            "duracion_min": servicio["duracion_min"],
+            "horas": [b["hora"] for b in bloques],
+        }
+
     def _horario_configurado(self, sede_id: int, servicio_id: int) -> list[dict]:
         horario = self._sedes.obtener_horario(sede_id).model_dump(mode="json")["horario"]
         if not horario:
