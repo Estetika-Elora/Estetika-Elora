@@ -14,6 +14,7 @@ from app.api import (  # noqa: E402
     disponibilidad_router,
     horario_sede_router,
     producto_router,
+    reserva_router,
     sede_router,
     usuario_router,
 )
@@ -28,6 +29,7 @@ app.include_router(sede_router.router)
 app.include_router(horario_sede_router.router)
 app.include_router(disponibilidad_router.router)
 app.include_router(producto_router.router)
+app.include_router(reserva_router.router)
 
 # Sin credenciales de Cloudinary las imágenes se guardan en local y se sirven en /uploads.
 if isinstance(producto_router.almacenamiento, AlmacenamientoLocal):
