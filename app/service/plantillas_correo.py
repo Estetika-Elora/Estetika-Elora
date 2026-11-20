@@ -9,6 +9,7 @@ from html import escape
 
 from app.service.correo_service import Correo
 
+
 COLOR_MARCA = "#B4567E"
 COLOR_MARCA_OSCURO = "#8E3F63"
 COLOR_FONDO = "#F7EEF2"
@@ -115,6 +116,63 @@ def correo_reserva_confirmada(
         destinatario=destinatario,
         nombre_destinatario=nombre,
         asunto=f"Reserva confirmada: {servicio} el {fecha} a las {hora}",
+        html=html,
+        texto=texto,
+    )
+
+
+def correo_solicitud_empresa_recibida(
+    destinatario: str,
+    nombre: str,
+    razon_social: str,
+    nit: str,
+) -> Correo:
+    """Confirma al representante que la solicitud fue recibida."""
+
+    primer_nombre = escape(nombre.split()[0] if nombre.split() else nombre)
+
+    razon_social_html = escape(razon_social)
+    nit_html = escape(nit)
+
+    html = f"""
+    <!doctype html>
+    <html lang="es">
+    <body style="font-family: Arial; padding: 25px;">
+        <h2>¡Hola, {primer_nombre}!</h2>
+
+        <p>
+            Hemos recibido la solicitud para registrar tu empresa
+            en Estetika Elora.
+        </p>
+
+        <p><strong>Razón social:</strong> {razon_social_html}</p>
+        <p><strong>NIT:</strong> {nit_html}</p>
+
+        <p>
+            Tu solicitud quedó en estado
+            <strong>PENDIENTE DE APROBACIÓN</strong>.
+        </p>
+
+        <p>
+            Te notificaremos cuando termine el proceso de revisión.
+        </p>
+    </body>
+    </html>
+    """
+
+    texto = (
+        f"¡Hola, {nombre}!\n\n"
+        "Hemos recibido tu solicitud de registro en Estetika Elora.\n\n"
+        f"Razón social: {razon_social}\n"
+        f"NIT: {nit}\n"
+        "Estado: PENDING_APPROVAL.\n\n"
+        "Te notificaremos cuando termine el proceso de revisión."
+    )
+
+    return Correo(
+        destinatario=destinatario,
+        nombre_destinatario=nombre,
+        asunto="Solicitud de registro recibida - Estetika Elora",
         html=html,
         texto=texto,
     )
