@@ -51,3 +51,7 @@ class DemasiadasSolicitudes(ErrorDominio):
 
 class ServicioExternoNoDisponible(ErrorDominio):
     """Un servicio externo (mapas, almacenamiento, correo) no respondió correctamente."""
+
+
+class ConflictoEstado(ErrorDominio):
+    """El cambio de estado choca con otros datos (p. ej. desactivar una sede con reservas futuras)."""

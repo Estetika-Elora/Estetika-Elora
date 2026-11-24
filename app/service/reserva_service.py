@@ -89,9 +89,14 @@ class ReservaService:
             correo_enviado=self._enviar_confirmacion(usuario, reserva, nombre_sede, nombre_servicio),
         )
 
+    def contar_futuras(self, sede_id: int) -> int:
+        """API-I18: reservas confirmadas de la sede que todavía no han pasado."""
+        return self._repositorio.contar_futuras_confirmadas(sede_id, self._reloj())
+
     def _disponibilidad_del_dia(
         self, sede_id: int, servicio_id: int, fecha: date
     ) -> tuple[DisponibilidadResponse, str]:
+        self._sedes.verificar_activa(sede_id)
         bloques = self._disponibilidad.listar_bloques(sede_id, servicio_id, fecha)
         reservadas = {r["hora"] for r in self._repositorio.listar_confirmadas(sede_id, servicio_id, fecha)}
         respuesta = DisponibilidadResponse(

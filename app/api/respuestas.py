@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.domain.errores import (
     CredencialesInvalidas,
+    ConflictoEstado,
     CuentaBloqueada,
     DatosInvalidos,
     DemasiadasSolicitudes,
@@ -51,6 +52,7 @@ _CODIGOS_HTTP = {
     OperacionNoPermitida: status.HTTP_403_FORBIDDEN,
     RecursoNoEncontrado: status.HTTP_404_NOT_FOUND,
     RecursoDuplicado: status.HTTP_409_CONFLICT,
+    ConflictoEstado: status.HTTP_409_CONFLICT,
     PrecondicionNoCumplida: status.HTTP_422_UNPROCESSABLE_ENTITY,
     DemasiadasSolicitudes: status.HTTP_429_TOO_MANY_REQUESTS,
     ServicioExternoNoDisponible: status.HTTP_503_SERVICE_UNAVAILABLE,
