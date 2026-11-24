@@ -1,16 +1,21 @@
-"""Dominio de Empresa (HU-11, HU-16 y HU-31).
+"""Dominio de Empresa (HU-11, HU-16, HU-19 y HU-31).
 
 Define los estados, las reglas de publicación y los contratos de entrada/salida
 que utiliza el módulo de empresas.
 """
 
 import re
+from datetime import date
 from enum import Enum
 
 from email_validator import EmailNotValidError, validate_email
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.domain.validaciones import limpiar_texto
+
+HORAS_MINIMAS_ANTELACION_MIN = 1
+HORAS_MINIMAS_ANTELACION_MAX = 72
+HORAS_MINIMAS_ANTELACION_DEFECTO = 24
 
 
 class EstadoEmpresa(str, Enum):
@@ -95,3 +100,29 @@ class EmpresaResponse(BaseModel):
     estado: EstadoEmpresa
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PoliticaCancelacionUpdate(BaseModel):
+    """Horas mínimas de antelación para cancelar o reprogramar una reserva (RN-24)."""
+
+    horas_minimas_antelacion: int
+
+    model_config = ConfigDict(json_schema_extra={"example": {"horas_minimas_antelacion": 24}})
+
+    @field_validator("horas_minimas_antelacion")
+    @classmethod
+    def validar_horas(cls, valor: int) -> int:
+        if not HORAS_MINIMAS_ANTELACION_MIN <= valor <= HORAS_MINIMAS_ANTELACION_MAX:
+            raise ValueError(
+                f"Las horas mínimas deben estar entre {HORAS_MINIMAS_ANTELACION_MIN} "
+                f"y {HORAS_MINIMAS_ANTELACION_MAX}"
+            )
+        return valor
+
+
+class PoliticaCancelacionResponse(BaseModel):
+    """Política de cancelación vigente de una empresa."""
+
+    empresa_id: int
+    horas_minimas_antelacion: int
+    vigente_desde: date | None

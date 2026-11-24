@@ -1,12 +1,21 @@
-"""Servicios de empresa: registro HU-11 y consulta/reglas RN-07.
+"""Servicios de empresa: registro HU-11, política de cancelación HU-19 y consulta/reglas RN-07.
 
 Los demás módulos (sedes y productos) consultan las empresas a través de esta clase,
 no acceden directamente al repositorio.
 """
 
+from datetime import date
 from typing import Protocol
 
-from app.domain.empresa import EmpresaCreate, EmpresaResponse, EstadoEmpresa, puede_publicar
+from app.domain.empresa import (
+    HORAS_MINIMAS_ANTELACION_DEFECTO,
+    EmpresaCreate,
+    EmpresaResponse,
+    EstadoEmpresa,
+    PoliticaCancelacionResponse,
+    PoliticaCancelacionUpdate,
+    puede_publicar,
+)
 from app.domain.errores import (
     OperacionNoPermitida,
     RecursoDuplicado,
@@ -93,6 +102,27 @@ class EmpresaService:
             )
         return empresa
     
+    def configurar_politica_cancelacion(
+        self, empresa_id: int, datos: PoliticaCancelacionUpdate
+    ) -> PoliticaCancelacionResponse:
+        """RN-24: guarda la política para toda la empresa. Solo empresas aprobadas (RN-07)."""
+        self.verificar_aprobada(empresa_id)
+        politica = {
+            "horas_minimas_antelacion": datos.horas_minimas_antelacion,
+            "vigente_desde": date.today(),
+        }
+        self._repositorio.actualizar(empresa_id, {"politica_cancelacion": politica})
+        return PoliticaCancelacionResponse(empresa_id=empresa_id, **politica)
+
+    def obtener_politica_cancelacion(self, empresa_id: int) -> PoliticaCancelacionResponse:
+        """API-I02: política vigente; si la empresa no ha configurado una, aplica 24 horas."""
+        empresa = self.obtener(empresa_id)
+        politica = empresa.get("politica_cancelacion") or {
+            "horas_minimas_antelacion": HORAS_MINIMAS_ANTELACION_DEFECTO,
+            "vigente_desde": None,
+        }
+        return PoliticaCancelacionResponse(empresa_id=empresa_id, **politica)
+
     def listar(self) -> list[EmpresaResponse]:
         """Devuelve todas las empresas registradas."""
         empresas = self._repositorio.listar()

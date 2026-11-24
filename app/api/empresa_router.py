@@ -1,9 +1,14 @@
-"""Endpoints de empresas (HU-11). La lógica de negocio vive en EmpresaService."""
+"""Endpoints de empresas (HU-11 y HU-19). La lógica de negocio vive en EmpresaService."""
 
 from fastapi import APIRouter, status
 
 from app.api.respuestas import RESPUESTAS_ERROR, RespuestaApi, RespuestaError, a_http
-from app.domain.empresa import EmpresaCreate, EmpresaResponse
+from app.domain.empresa import (
+    EmpresaCreate,
+    EmpresaResponse,
+    PoliticaCancelacionResponse,
+    PoliticaCancelacionUpdate,
+)
 from app.domain.errores import ErrorDominio
 from app.repository.empresa_repository import empresa_repository
 from app.service.correo_service import crear_servicio_correo
@@ -78,3 +83,23 @@ def obtener_empresa(empresa_id: int):
         message="Empresa consultada correctamente",
         data=empresa,
     )
+
+
+@router.put(
+    "/{empresa_id}/politica-cancelacion",
+    response_model=RespuestaApi[PoliticaCancelacionResponse],
+    responses=RESPUESTAS_ERROR,
+    summary="Configurar la política de cancelación de la empresa",
+    description=(
+        "Define cuántas horas antes de la cita se puede cancelar o reprogramar una reserva "
+        "(RN-24). El valor debe estar entre 1 y 72 horas y aplica a todas las sedes de la "
+        "empresa. Solo empresas aprobadas (RN-07). Si no se configura, se aplican 24 horas."
+    ),
+)
+def configurar_politica_cancelacion(empresa_id: int, datos: PoliticaCancelacionUpdate):
+    try:
+        politica = servicio.configurar_politica_cancelacion(empresa_id, datos)
+    except ErrorDominio as error:
+        raise a_http(error) from error
+
+    return RespuestaApi(message="Política de cancelación guardada", data=politica)
