@@ -19,15 +19,30 @@
 2. Validar el rango de fechas opcional; formato inválido o rango invertido responde 400.
 3. Pedir las reservas del usuario (API-I11), filtrarlas por el rango y ordenarlas de la más
    reciente a la más antigua, con el nombre de la sede y del servicio de cada una.
+
+`cerrar` (HU-40 · PRO-40):
+1. Buscar la reserva; si no existe, 404.
+2. RN-25: debe seguir CONFIRMED (si no, 409) y su cita ya debe haber empezado (si no, 422).
+3. Guardar el resultado (COMPLETED o NO_SHOW). Si otro cierre llegó primero, 409.
+4. Informar si la reseña quedó habilitada (API-I21): solo con COMPLETED.
 """
 
 from datetime import date, datetime
 from typing import Callable
 
-from app.domain.errores import RecursoDuplicado, RecursoNoEncontrado, ServicioExternoNoDisponible
+from app.domain.errores import (
+    ConflictoEstado,
+    RecursoDuplicado,
+    RecursoNoEncontrado,
+    ServicioExternoNoDisponible,
+)
 from app.domain.reserva import (
     MENSAJE_HORARIO_NO_DISPONIBLE,
+    MENSAJE_RESERVA_NO_EXISTE,
+    MENSAJE_RESERVA_YA_CERRADA,
     NOMBRE_NO_DISPONIBLE,
+    CierreRequest,
+    CierreResponse,
     DisponibilidadResponse,
     EstadoReserva,
     HistorialItem,
@@ -38,6 +53,8 @@ from app.domain.reserva import (
     filtrar_y_ordenar_historial,
     leer_fecha_consulta,
     leer_rango_historial,
+    resena_habilitada,
+    verificar_puede_cerrar,
     verificar_puede_reservar,
 )
 from app.repository.reserva_repository import ReservaRepository
@@ -126,6 +143,26 @@ class ReservaService:
             for r in reservas
         ]
         return HistorialResponse(usuario_id=usuario_id, total=len(items), reservas=items)
+
+    def cerrar(self, reserva_id: int, datos: CierreRequest) -> CierreResponse:
+        reserva = self._repositorio.obtener_por_id(reserva_id)
+        if reserva is None:
+            raise RecursoNoEncontrado(MENSAJE_RESERVA_NO_EXISTE, {"reserva_id": reserva_id})
+        verificar_puede_cerrar(reserva, self._reloj())
+
+        estado = EstadoReserva(datos.resultado.value)
+        cerrada = self._repositorio.cerrar(reserva_id, estado, self._reloj())
+        if cerrada is None:
+            actual = self._repositorio.obtener_por_id(reserva_id)
+            raise ConflictoEstado(
+                MENSAJE_RESERVA_YA_CERRADA,
+                {"reserva_id": reserva_id, "estado": EstadoReserva(actual["estado"]).value},
+            )
+        return CierreResponse(
+            reserva_id=reserva_id,
+            estado=cerrada["estado"],
+            resena_habilitada=resena_habilitada(cerrada["estado"]),
+        )
 
     def contar_futuras(self, sede_id: int) -> int:
         """API-I18: reservas confirmadas de la sede que todavía no han pasado."""
