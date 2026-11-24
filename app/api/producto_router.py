@@ -22,8 +22,7 @@ from app.service.almacenamiento_service import crear_almacenamiento
 from app.service.empresa_service import EmpresaService
 from app.service.producto_service import ProductoService
 
-router = APIRouter(prefix="/api/v1/empresas/{empresa_id}/productos", tags=["Productos (HU-31)"])
-router_stock = APIRouter(prefix="/api/v1/productos", tags=["Inventario (HU-32)"])
+router = APIRouter(prefix="/api/v1")
 
 almacenamiento = crear_almacenamiento()
 servicio = ProductoService(producto_repository, EmpresaService(empresa_repository), almacenamiento)
@@ -46,7 +45,8 @@ def _leer_imagenes(archivos: list[UploadFile] | None) -> list[ArchivoImagen]:
 
 
 @router.post(
-    "",
+    "/empresas/{empresa_id}/productos",
+    tags=["Productos (HU-31)"],
     status_code=status.HTTP_201_CREATED,
     response_model=RespuestaApi[ProductoResponse],
     responses=RESPUESTAS_ERROR,
@@ -80,7 +80,8 @@ def crear_producto(
 
 
 @router.get(
-    "",
+    "/empresas/{empresa_id}/productos",
+    tags=["Productos (HU-31)"],
     response_model=RespuestaApi[list[ProductoResponse]],
     responses={404: RESPUESTAS_ERROR[404]},
     summary="Listar los productos de una empresa",
@@ -94,7 +95,8 @@ def listar_productos(empresa_id: int):
 
 
 @router.get(
-    "/{producto_id}",
+    "/empresas/{empresa_id}/productos/{producto_id}",
+    tags=["Productos (HU-31)"],
     response_model=RespuestaApi[ProductoResponse],
     responses={404: RESPUESTAS_ERROR[404]},
     summary="Consultar un producto",
@@ -108,7 +110,8 @@ def obtener_producto(empresa_id: int, producto_id: int):
 
 
 @router.put(
-    "/{producto_id}",
+    "/empresas/{empresa_id}/productos/{producto_id}",
+    tags=["Productos (HU-31)"],
     response_model=RespuestaApi[ProductoResponse],
     responses=RESPUESTAS_ERROR,
     summary="Editar un producto",
@@ -142,7 +145,8 @@ def actualizar_producto(
 
 
 @router.delete(
-    "/{producto_id}",
+    "/empresas/{empresa_id}/productos/{producto_id}",
+    tags=["Productos (HU-31)"],
     response_model=RespuestaApi[ProductoResponse],
     responses={403: RESPUESTAS_ERROR[403], 404: RESPUESTAS_ERROR[404]},
     summary="Eliminar un producto",
@@ -156,8 +160,9 @@ def eliminar_producto(empresa_id: int, producto_id: int):
     return RespuestaApi(message="Producto eliminado correctamente", data=producto)
 
 
-@router_stock.patch(
-    "/{producto_id}/stock",
+@router.patch(
+    "/productos/{producto_id}/stock",
+    tags=["Inventario (HU-32)"],
     response_model=RespuestaApi[StockResponse],
     responses=RESPUESTAS_ERROR,
     summary="Actualizar el stock de un producto",

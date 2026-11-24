@@ -10,7 +10,7 @@ from app.domain.errores import ErrorDominio
 from app.repository.usuario_repository import usuario_repository
 from app.service.auth_service import AuthService
 
-router = APIRouter(prefix="/api/v1/auth", tags=["Autenticación (HU-02)"])
+router = APIRouter(prefix="/api/v1")
 
 
 def _secreto() -> str:
@@ -39,7 +39,8 @@ def _error(descripcion: str, mensaje: str, data: dict) -> dict:
 
 
 @router.post(
-    "/login",
+    "/auth/login",
+    tags=["Autenticación (HU-02)"],
     response_model=RespuestaApi[LoginResponse],
     responses={
         400: _error("El correo no tiene formato válido o falta un campo", "El correo no tiene un formato válido", {"correo": "laura"}),
