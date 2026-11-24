@@ -1,7 +1,10 @@
-"""Endpoints de reservas (MOD-05): horarios libres (HU-36) y creación de reservas (HU-37).
+"""Endpoints de reservas (MOD-05): horarios libres (HU-36), creación de reservas (HU-37) e
+historial de reservas del usuario (HU-05).
 
 Solo llaman al servicio de reservas y convierten errores en HTTP. Reutilizan las instancias
 de sedes y disponibilidad del router de sedes (HU-16, HU-23) y la de usuarios (HU-01).
+El historial vive aquí, con prefijo /api/v1/usuarios, porque usuario_router no puede
+importar este módulo sin crear una importación circular.
 """
 
 from fastapi import APIRouter, Query, status
@@ -10,22 +13,38 @@ from app.api.respuestas import RespuestaApi, RespuestaError, a_http
 from app.api.sede_router import disponibilidad
 from app.api.sede_router import servicio as sedes
 from app.api.usuario_router import servicio as usuarios
+from app.domain.disponibilidad import MENSAJE_FORMATO_FECHA
 from app.domain.errores import ErrorDominio
 from app.domain.reserva import (
     MENSAJE_CON_HORARIOS,
+    MENSAJE_HISTORIAL,
+    MENSAJE_HISTORIAL_VACIO,
     MENSAJE_HORARIO_NO_DISPONIBLE,
     MENSAJE_SIN_HORARIOS,
     DisponibilidadResponse,
+    HistorialResponse,
     ReservaCreate,
     ReservaResponse,
 )
 from app.repository.reserva_repository import reserva_repository
+from app.repository.servicio_repository import servicio_repository
 from app.service.correo_service import crear_servicio_correo
 from app.service.reserva_service import ReservaService
+from app.service.servicio_service import ServicioService
 
 router = APIRouter(prefix="/api/v1/reservas", tags=["Reservas (HU-36, HU-37)"])
+EJEMPLO_HISTORIAL = HistorialResponse.model_config["json_schema_extra"]["example"]
 
-servicio = ReservaService(reserva_repository, disponibilidad, sedes, usuarios, crear_servicio_correo())
+router_historial = APIRouter(prefix="/api/v1/usuarios", tags=["Usuarios (HU-05)"])
+
+servicio = ReservaService(
+    reserva_repository,
+    disponibilidad,
+    sedes,
+    usuarios,
+    crear_servicio_correo(),
+    ServicioService(servicio_repository),
+)
 sedes.registrar_contador_reservas(servicio.contar_futuras)
 
 
@@ -169,3 +188,72 @@ def crear_reserva(datos: ReservaCreate):
     except ErrorDominio as error:
         raise a_http(error) from error
     return RespuestaApi(message="Reserva creada correctamente", data=resultado)
+
+
+@router_historial.get(
+    "/{usuario_id}/historial",
+    response_model=RespuestaApi[HistorialResponse],
+    responses={
+        200: {
+            "description": (
+                "Historial del usuario, de la reserva más reciente a la más antigua. Si no hay "
+                "reservas en el rango también responde 200, pero con success = false y total = 0"
+            ),
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "con_reservas": {
+                            "summary": "El usuario tiene reservas",
+                            "value": {
+                                "message": MENSAJE_HISTORIAL,
+                                "data": EJEMPLO_HISTORIAL,
+                                "success": True,
+                            },
+                        },
+                        "sin_reservas": {
+                            "summary": "No hay reservas en el rango",
+                            "value": {
+                                "message": MENSAJE_HISTORIAL_VACIO,
+                                "data": {"usuario_id": 125, "total": 0, "reservas": []},
+                                "success": False,
+                            },
+                        },
+                    }
+                }
+            },
+        },
+        400: _error(
+            "La fecha desde o hasta no es YYYY-MM-DD, o hasta es anterior a desde",
+            MENSAJE_FORMATO_FECHA,
+            {"desde": "01-11-2026"},
+        ),
+        404: _error("El usuario no existe", "El usuario no existe", {"usuario_id": 130}),
+        503: _error(
+            "No responde Gestión de Reservas o la base de datos",
+            "El servicio no está disponible en este momento. Intente más tarde",
+            {},
+        ),
+    },
+    summary="Consultar el historial de reservas",
+    description=(
+        "Devuelve en una sola lista las reservas del usuario (API-I11), en cualquier estado, "
+        "de la más reciente a la más antigua. Se puede filtrar por un rango de fechas con "
+        "`desde` y `hasta` (YYYY-MM-DD, ambos incluidos y opcionales)."
+    ),
+)
+def consultar_historial(
+    usuario_id: int,
+    desde: str | None = Query(
+        None, description="Fecha inicial del rango (YYYY-MM-DD)", examples=["2026-11-01"]
+    ),
+    hasta: str | None = Query(
+        None, description="Fecha final del rango (YYYY-MM-DD)", examples=["2026-11-30"]
+    ),
+):
+    try:
+        resultado = servicio.consultar_historial(usuario_id, desde, hasta)
+    except ErrorDominio as error:
+        raise a_http(error) from error
+    if not resultado.reservas:
+        return RespuestaApi(message=MENSAJE_HISTORIAL_VACIO, data=resultado, success=False)
+    return RespuestaApi(message=MENSAJE_HISTORIAL, data=resultado)
