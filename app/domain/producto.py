@@ -1,9 +1,11 @@
-"""Dominio de Producto (HU-31): schemas de entrada y salida con sus validaciones."""
+"""Dominio de Producto (HU-31, HU-32): schemas de entrada y salida con sus validaciones."""
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from app.domain.estados import EstadoRegistro
 from app.domain.validaciones import limpiar_texto
+
+UMBRAL_STOCK_BAJO = 5
 
 
 def _validar_precio(valor: int) -> int:
@@ -107,3 +109,31 @@ class ProductoResponse(BaseModel):
     estado: EstadoRegistro
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StockUpdate(BaseModel):
+    """Nueva cantidad de stock o ajuste (+ o −) sobre el actual. Se envía solo uno de los dos."""
+
+    cantidad: int | None = None
+    ajuste: int | None = None
+
+    @field_validator("cantidad")
+    @classmethod
+    def validar_cantidad(cls, valor: int | None) -> int | None:
+        return None if valor is None else _validar_stock(valor)
+
+    @model_validator(mode="after")
+    def validar_un_solo_campo(self) -> "StockUpdate":
+        if (self.cantidad is None) == (self.ajuste is None):
+            raise ValueError("Debe enviar solo uno de los campos cantidad o ajuste")
+        return self
+
+
+class StockResponse(BaseModel):
+    """Resultado de actualizar el stock de un producto (RN-20: alerta de stock bajo)."""
+
+    producto_id: int
+    nombre: str
+    stock_anterior: int
+    stock_actual: int
+    alerta_stock_bajo: bool
