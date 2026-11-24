@@ -1,4 +1,4 @@
-"""Endpoints de productos (HU-31). Solo llaman al servicio y convierten errores en HTTP.
+"""Endpoints de productos (HU-31) y de su stock (HU-32). Solo llaman al servicio y convierten errores en HTTP.
 
 POST y PUT reciben multipart/form-data porque incluyen imágenes.
 """
@@ -9,7 +9,13 @@ from pydantic import ValidationError
 from app.api.respuestas import RESPUESTAS_ERROR, RespuestaApi, a_http, error_validacion
 from app.domain.errores import ErrorDominio
 from app.domain.imagen import TAMANO_MAXIMO_BYTES, ArchivoImagen
-from app.domain.producto import ProductoCreate, ProductoResponse, ProductoUpdate
+from app.domain.producto import (
+    ProductoCreate,
+    ProductoResponse,
+    ProductoUpdate,
+    StockResponse,
+    StockUpdate,
+)
 from app.repository.empresa_repository import empresa_repository
 from app.repository.producto_repository import producto_repository
 from app.service.almacenamiento_service import crear_almacenamiento
@@ -17,6 +23,7 @@ from app.service.empresa_service import EmpresaService
 from app.service.producto_service import ProductoService
 
 router = APIRouter(prefix="/api/v1/empresas/{empresa_id}/productos", tags=["Productos (HU-31)"])
+router_stock = APIRouter(prefix="/api/v1/productos", tags=["Inventario (HU-32)"])
 
 almacenamiento = crear_almacenamiento()
 servicio = ProductoService(producto_repository, EmpresaService(empresa_repository), almacenamiento)
@@ -147,3 +154,34 @@ def eliminar_producto(empresa_id: int, producto_id: int):
     except ErrorDominio as error:
         raise a_http(error) from error
     return RespuestaApi(message="Producto eliminado correctamente", data=producto)
+
+
+@router_stock.patch(
+    "/{producto_id}/stock",
+    response_model=RespuestaApi[StockResponse],
+    responses=RESPUESTAS_ERROR,
+    summary="Actualizar el stock de un producto",
+    description=(
+        "Envíe solo uno de los campos: `cantidad` reemplaza el stock por ese valor y `ajuste` "
+        "suma o resta al stock actual. El stock resultante no puede ser negativo (RN-16). "
+        "Si queda por debajo de 5 unidades se devuelve `alerta_stock_bajo = true` (RN-20)."
+    ),
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "ajuste": {"summary": "Ajuste (+ o −)", "value": {"ajuste": -21}},
+                        "cantidad": {"summary": "Nueva cantidad", "value": {"cantidad": 30}},
+                    }
+                }
+            }
+        }
+    },
+)
+def actualizar_stock(producto_id: int, datos: StockUpdate):
+    try:
+        resultado = servicio.actualizar_stock(producto_id, datos)
+    except ErrorDominio as error:
+        raise a_http(error) from error
+    return RespuestaApi(message="Stock actualizado correctamente", data=resultado)
