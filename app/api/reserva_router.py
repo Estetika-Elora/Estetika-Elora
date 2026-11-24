@@ -3,7 +3,7 @@ historial de reservas del usuario (HU-05).
 
 Solo llaman al servicio de reservas y convierten errores en HTTP. Reutilizan las instancias
 de sedes y disponibilidad del router de sedes (HU-16, HU-23) y la de usuarios (HU-01).
-El historial vive aquí, con prefijo /api/v1/usuarios, porque usuario_router no puede
+El historial (/usuarios/{usuario_id}/historial) vive aquí porque usuario_router no puede
 importar este módulo sin crear una importación circular.
 """
 
@@ -32,10 +32,8 @@ from app.service.correo_service import crear_servicio_correo
 from app.service.reserva_service import ReservaService
 from app.service.servicio_service import ServicioService
 
-router = APIRouter(prefix="/api/v1/reservas", tags=["Reservas (HU-36, HU-37)"])
+router = APIRouter(prefix="/api/v1")
 EJEMPLO_HISTORIAL = HistorialResponse.model_config["json_schema_extra"]["example"]
-
-router_historial = APIRouter(prefix="/api/v1/usuarios", tags=["Usuarios (HU-05)"])
 
 servicio = ReservaService(
     reserva_repository,
@@ -57,7 +55,8 @@ def _error(descripcion: str, mensaje: str, data: dict) -> dict:
 
 
 @router.get(
-    "/disponibilidad",
+    "/reservas/disponibilidad",
+    tags=["Reservas (HU-36, HU-37)"],
     response_model=RespuestaApi[DisponibilidadResponse],
     responses={
         200: {
@@ -140,7 +139,8 @@ def consultar_disponibilidad(
 
 
 @router.post(
-    "",
+    "/reservas",
+    tags=["Reservas (HU-36, HU-37)"],
     status_code=status.HTTP_201_CREATED,
     response_model=RespuestaApi[ReservaResponse],
     responses={
@@ -190,8 +190,9 @@ def crear_reserva(datos: ReservaCreate):
     return RespuestaApi(message="Reserva creada correctamente", data=resultado)
 
 
-@router_historial.get(
-    "/{usuario_id}/historial",
+@router.get(
+    "/usuarios/{usuario_id}/historial",
+    tags=["Usuarios (HU-05)"],
     response_model=RespuestaApi[HistorialResponse],
     responses={
         200: {
