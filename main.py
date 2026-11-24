@@ -30,6 +30,7 @@ app.include_router(sede_router.router)
 app.include_router(horario_sede_router.router)
 app.include_router(disponibilidad_router.router)
 app.include_router(producto_router.router)
+app.include_router(producto_router.router_stock)
 app.include_router(reserva_router.router)
 app.include_router(empresa_router.router)
 
