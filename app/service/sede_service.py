@@ -3,14 +3,22 @@
 - HU-16 · PRO-16: CRUD de sedes con dirección validada en el mapa.
 - HU-17 · PRO-17: horario de atención de la sede (se guarda en el campo `horario`).
   Al guardarlo se regeneran los horarios disponibles de la sede (HU-23).
+- HU-20 · PRO-20: activar o desactivar la sede. No se desactiva si tiene reservas futuras
+  confirmadas (RN-10); una sede inactiva no se puede reservar.
 """
 
 from typing import Callable
 
-from app.domain.errores import DatosInvalidos, RecursoNoEncontrado
+from app.domain.errores import ConflictoEstado, DatosInvalidos, RecursoNoEncontrado
 from app.domain.estados import EstadoRegistro
 from app.domain.horario import HorarioResponse, HorarioUpdate, apertura_menor_que_cierre
-from app.domain.sede import SedeCreate, SedeResponse, SedeUpdate
+from app.domain.sede import (
+    SedeCreate,
+    SedeEstadoResponse,
+    SedeEstadoUpdate,
+    SedeResponse,
+    SedeUpdate,
+)
 from app.repository.sede_repository import SedeRepository
 from app.service.empresa_service import EmpresaService
 from app.service.mapas_service import Coordenadas, MapasService
@@ -27,6 +35,7 @@ class SedeService:
         self._empresas = empresa_service
         self._mapas = mapas_service
         self._regenerador: Callable[[int], None] | None = None
+        self._contador_reservas: Callable[[int], int] | None = None
 
     def crear(self, empresa_id: int, datos: SedeCreate) -> SedeResponse:
         self._empresas.verificar_aprobada(empresa_id)  # RN-07
@@ -89,6 +98,35 @@ class SedeService:
             disponibilidad_regenerada=self.regenerar_disponibilidad(sede_id),
         )
 
+    def cambiar_estado(self, sede_id: int, datos: SedeEstadoUpdate) -> SedeEstadoResponse:
+        """HU-20: activa o desactiva la sede; con reservas futuras confirmadas no se desactiva."""
+        sede = self._buscar(sede_id)
+        self._empresas.verificar_aprobada(sede["empresa_id"])
+        if sede["estado"] == datos.estado:
+            raise ConflictoEstado(
+                f"La sede ya se encuentra en estado {datos.estado.value}",
+                {"sede_id": sede_id, "estado": datos.estado.value},
+            )
+
+        reservas_futuras = self._contar_reservas_futuras(sede_id)
+        if datos.estado == EstadoRegistro.INACTIVE and reservas_futuras > 0:
+            raise ConflictoEstado(
+                "No se puede desactivar la sede porque tiene reservas futuras confirmadas",
+                {"sede_id": sede_id, "reservas_futuras": reservas_futuras},
+            )
+
+        self._repositorio.actualizar(sede_id, {"estado": datos.estado})
+        if datos.estado == EstadoRegistro.ACTIVE:
+            self.regenerar_disponibilidad(sede_id)
+        return SedeEstadoResponse(sede_id=sede_id, estado=datos.estado, reservas_futuras=reservas_futuras)
+
+    def verificar_activa(self, sede_id: int) -> dict:
+        """Una sede inactiva se trata como inexistente para reservar y para la búsqueda."""
+        sede = self._repositorio.obtener_por_id(sede_id)
+        if sede is None or sede["estado"] != EstadoRegistro.ACTIVE:
+            raise RecursoNoEncontrado("La sede no existe o no está activa", {"sede_id": sede_id})
+        return sede
+
     def obtener_horario(self, sede_id: int) -> HorarioResponse:
         """API-I17: horario de atención de la sede; lista vacía si no está configurado."""
         sede = self._buscar(sede_id)
@@ -105,6 +143,17 @@ class SedeService:
         la disponibilidad también necesita leer el horario de la sede.
         """
         self._regenerador = regenerador
+
+    def registrar_contador_reservas(self, contador: Callable[[int], int]) -> None:
+        """Recibe la función de Reservas que cuenta las reservas futuras confirmadas (API-I18).
+
+        Se conecta en reserva_router por la misma razón que el regenerador: Reservas ya
+        depende de este servicio.
+        """
+        self._contador_reservas = contador
+
+    def _contar_reservas_futuras(self, sede_id: int) -> int:
+        return 0 if self._contador_reservas is None else self._contador_reservas(sede_id)
 
     def regenerar_disponibilidad(self, sede_id: int) -> bool:
         """API-I19: regenera los horarios disponibles de los servicios de la sede."""
