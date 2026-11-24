@@ -1,5 +1,5 @@
-"""Dominio de Reserva (MOD-05): horarios libres (HU-36), creación de reservas (HU-37) e
-historial del usuario (HU-05).
+"""Dominio de Reserva (MOD-05): horarios libres (HU-36), creación de reservas (HU-37),
+historial del usuario (HU-05) y cierre de la reserva (HU-40).
 
 Reglas:
 - RN-13: solo se ofrecen los horarios que generó el catálogo (HU-23), que ya están dentro
@@ -12,6 +12,9 @@ Reglas:
   fuera del alcance y la reserva nace CONFIRMED, como pide la HU-37.
 - HU-05: el historial de un usuario se ordena de la reserva más reciente a la más antigua
   y se puede filtrar por un rango de fechas (ambos extremos incluidos).
+- RN-25: una reserva solo se cierra (COMPLETED o NO_SHOW) después de la fecha y hora de la
+  cita, y solo si sigue CONFIRMED. La reseña queda habilitada cuando la reserva está
+  COMPLETED (API-I21); con NO_SHOW no.
 """
 
 from datetime import date, datetime, timedelta
@@ -20,7 +23,12 @@ from enum import Enum
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.domain.disponibilidad import MENSAJE_FORMATO_FECHA, leer_fecha
-from app.domain.errores import DatosInvalidos, OperacionNoPermitida
+from app.domain.errores import (
+    ConflictoEstado,
+    DatosInvalidos,
+    OperacionNoPermitida,
+    PrecondicionNoCumplida,
+)
 from app.domain.horario import a_minutos, validar_hora
 from app.domain.usuario import EstadoCuenta
 
@@ -31,10 +39,52 @@ MENSAJE_HISTORIAL = "Consulta de historial exitosa"
 MENSAJE_HISTORIAL_VACIO = "No tiene reservas en el rango de fechas indicado"
 MENSAJE_RANGO_INVERTIDO = "La fecha hasta debe ser igual o posterior a la fecha desde"
 NOMBRE_NO_DISPONIBLE = "No disponible"
+MENSAJE_RESERVA_CERRADA = "Reserva cerrada correctamente"
+MENSAJE_RESERVA_NO_EXISTE = "La reserva no existe"
+MENSAJE_RESERVA_YA_CERRADA = "La reserva ya está cerrada"
+MENSAJE_CIERRE_ANTICIPADO = "No se puede cerrar una reserva antes de la hora de la cita"
 
 
 class EstadoReserva(str, Enum):
     CONFIRMED = "CONFIRMED"
+    COMPLETED = "COMPLETED"
+    NO_SHOW = "NO_SHOW"
+
+
+class ResultadoCierre(str, Enum):
+    """Resultado de la cita que registra la sede al cerrar la reserva (HU-40)."""
+
+    COMPLETED = "COMPLETED"
+    NO_SHOW = "NO_SHOW"
+
+
+def inicio_cita(reserva: dict) -> datetime:
+    return datetime.combine(reserva["fecha"], datetime.min.time()) + timedelta(
+        minutes=a_minutos(reserva["hora"])
+    )
+
+
+def verificar_puede_cerrar(reserva: dict, ahora: datetime) -> None:
+    """RN-25: solo se cierra una reserva CONFIRMED cuya cita ya empezó."""
+    if reserva["estado"] != EstadoReserva.CONFIRMED:
+        raise ConflictoEstado(
+            MENSAJE_RESERVA_YA_CERRADA,
+            {"reserva_id": reserva["reserva_id"], "estado": EstadoReserva(reserva["estado"]).value},
+        )
+    if ahora < inicio_cita(reserva):
+        raise PrecondicionNoCumplida(
+            MENSAJE_CIERRE_ANTICIPADO,
+            {
+                "reserva_id": reserva["reserva_id"],
+                "fecha": reserva["fecha"].isoformat(),
+                "hora": reserva["hora"],
+            },
+        )
+
+
+def resena_habilitada(estado: EstadoReserva) -> bool:
+    """API-I21: el usuario puede reseñar solo una reserva completada (RN-25)."""
+    return estado == EstadoReserva.COMPLETED
 
 
 def verificar_puede_reservar(usuario: dict) -> None:
@@ -194,5 +244,25 @@ class HistorialResponse(BaseModel):
                     },
                 ],
             }
+        }
+    )
+
+
+class CierreRequest(BaseModel):
+    """Resultado de la cita: COMPLETED si el cliente asistió, NO_SHOW si no llegó."""
+
+    resultado: ResultadoCierre
+
+    model_config = ConfigDict(json_schema_extra={"example": {"resultado": "COMPLETED"}})
+
+
+class CierreResponse(BaseModel):
+    reserva_id: int
+    estado: EstadoReserva
+    resena_habilitada: bool
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"reserva_id": 1050, "estado": "COMPLETED", "resena_habilitada": True}
         }
     )
