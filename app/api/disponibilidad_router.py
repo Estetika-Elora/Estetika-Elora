@@ -11,10 +11,7 @@ from app.api.sede_router import disponibilidad
 from app.domain.disponibilidad import GeneracionRequest, GeneracionResponse
 from app.domain.errores import ErrorDominio
 
-router = APIRouter(
-    prefix="/api/v1/sedes/{sede_id}/servicios/{servicio_id}/horarios",
-    tags=["Horarios disponibles (HU-23)"],
-)
+router = APIRouter(prefix="/api/v1")
 
 
 def _error(descripcion: str, mensaje: str, data: dict) -> dict:
@@ -26,7 +23,8 @@ def _error(descripcion: str, mensaje: str, data: dict) -> dict:
 
 
 @router.post(
-    "",
+    "/sedes/{sede_id}/servicios/{servicio_id}/horarios",
+    tags=["Horarios disponibles (HU-23)"],
     status_code=status.HTTP_201_CREATED,
     response_model=RespuestaApi[GeneracionResponse],
     responses={
