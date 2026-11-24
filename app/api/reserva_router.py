@@ -1,5 +1,5 @@
-"""Endpoints de reservas (MOD-05): horarios libres (HU-36), creación de reservas (HU-37) e
-historial de reservas del usuario (HU-05).
+"""Endpoints de reservas (MOD-05): horarios libres (HU-36), creación de reservas (HU-37),
+historial de reservas del usuario (HU-05) y cierre de la reserva (HU-40).
 
 Solo llaman al servicio de reservas y convierten errores en HTTP. Reutilizan las instancias
 de sedes y disponibilidad del router de sedes (HU-16, HU-23) y la de usuarios (HU-01).
@@ -16,11 +16,17 @@ from app.api.usuario_router import servicio as usuarios
 from app.domain.disponibilidad import MENSAJE_FORMATO_FECHA
 from app.domain.errores import ErrorDominio
 from app.domain.reserva import (
+    MENSAJE_CIERRE_ANTICIPADO,
     MENSAJE_CON_HORARIOS,
     MENSAJE_HISTORIAL,
     MENSAJE_HISTORIAL_VACIO,
     MENSAJE_HORARIO_NO_DISPONIBLE,
+    MENSAJE_RESERVA_CERRADA,
+    MENSAJE_RESERVA_NO_EXISTE,
+    MENSAJE_RESERVA_YA_CERRADA,
     MENSAJE_SIN_HORARIOS,
+    CierreRequest,
+    CierreResponse,
     DisponibilidadResponse,
     HistorialResponse,
     ReservaCreate,
@@ -258,3 +264,79 @@ def consultar_historial(
     if not resultado.reservas:
         return RespuestaApi(message=MENSAJE_HISTORIAL_VACIO, data=resultado, success=False)
     return RespuestaApi(message=MENSAJE_HISTORIAL, data=resultado)
+
+
+@router.patch(
+    "/reservas/{reserva_id}/cierre",
+    tags=["Reservas (HU-40)"],
+    response_model=RespuestaApi[CierreResponse],
+    responses={
+        200: {
+            "description": "Reserva cerrada con el resultado de la cita",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "completada": {
+                            "summary": "El cliente asistió: se habilita la reseña",
+                            "value": {
+                                "message": MENSAJE_RESERVA_CERRADA,
+                                "data": {
+                                    "reserva_id": 1050,
+                                    "estado": "COMPLETED",
+                                    "resena_habilitada": True,
+                                },
+                                "success": True,
+                            },
+                        },
+                        "inasistencia": {
+                            "summary": "El cliente no llegó: no se habilita la reseña",
+                            "value": {
+                                "message": MENSAJE_RESERVA_CERRADA,
+                                "data": {
+                                    "reserva_id": 1050,
+                                    "estado": "NO_SHOW",
+                                    "resena_habilitada": False,
+                                },
+                                "success": True,
+                            },
+                        },
+                    }
+                }
+            },
+        },
+        400: _error(
+            "El resultado no es COMPLETED ni NO_SHOW, o falta en el body",
+            "El campo resultado no es válido",
+            {"resultado": "CANCELADA"},
+        ),
+        404: _error("La reserva no existe", MENSAJE_RESERVA_NO_EXISTE, {"reserva_id": 9999}),
+        409: _error(
+            "La reserva ya fue cerrada (no está CONFIRMED)",
+            MENSAJE_RESERVA_YA_CERRADA,
+            {"reserva_id": 1050, "estado": "COMPLETED"},
+        ),
+        422: _error(
+            "La fecha y hora de la cita todavía no llegan (RN-25)",
+            MENSAJE_CIERRE_ANTICIPADO,
+            {"reserva_id": 1051, "fecha": "2026-11-20", "hora": "10:00"},
+        ),
+        503: _error(
+            "No hay conexión con la base de datos",
+            "El servicio no está disponible en este momento. Intente más tarde",
+            {},
+        ),
+    },
+    summary="Registrar la asistencia y cerrar la reserva",
+    description=(
+        "La sede registra el resultado de la cita: COMPLETED si el cliente asistió o NO_SHOW "
+        "si no llegó (inasistencia). Solo se puede cerrar una reserva CONFIRMED cuya fecha y "
+        "hora ya llegaron (RN-25). Con COMPLETED se habilita la reseña del servicio (API-I21, "
+        "HU-46); con NO_SHOW no."
+    ),
+)
+def cerrar_reserva(reserva_id: int, datos: CierreRequest):
+    try:
+        resultado = servicio.cerrar(reserva_id, datos)
+    except ErrorDominio as error:
+        raise a_http(error) from error
+    return RespuestaApi(message=MENSAJE_RESERVA_CERRADA, data=resultado)
