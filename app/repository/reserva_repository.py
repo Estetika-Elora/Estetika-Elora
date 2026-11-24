@@ -46,6 +46,10 @@ class ReservaRepository:
             and r["estado"] == EstadoReserva.CONFIRMED
         ]
 
+    def listar_por_usuario(self, usuario_id: int) -> list[dict]:
+        """API-I11: todas las reservas del usuario, en cualquier estado."""
+        return [copy.deepcopy(r) for r in self._reservas if r["usuario_id"] == usuario_id]
+
     def contar_futuras_confirmadas(self, sede_id: int, ahora: datetime) -> int:
         return sum(
             1
