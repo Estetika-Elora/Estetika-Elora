@@ -7,7 +7,7 @@ prueba de la HU-37.
 
 import copy
 import threading
-from datetime import date
+from datetime import date, datetime, time
 
 from app.domain.reserva import EstadoReserva
 
@@ -45,6 +45,15 @@ class ReservaRepository:
             and r["fecha"] == fecha
             and r["estado"] == EstadoReserva.CONFIRMED
         ]
+
+    def contar_futuras_confirmadas(self, sede_id: int, ahora: datetime) -> int:
+        return sum(
+            1
+            for r in self._reservas
+            if r["sede_id"] == sede_id
+            and r["estado"] == EstadoReserva.CONFIRMED
+            and datetime.combine(r["fecha"], time.fromisoformat(r["hora"])) > ahora
+        )
 
 
 reserva_repository = ReservaRepository()
