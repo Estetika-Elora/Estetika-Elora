@@ -1,11 +1,18 @@
-"""Servicio de productos (HU-31 · PRO-31): CRUD de productos con imágenes en la nube."""
+"""Servicio de productos (HU-31 · PRO-31, HU-32 · PRO-32): CRUD de productos con imágenes en la nube y stock."""
 
 import logging
 
 from app.domain.errores import DatosInvalidos, ErrorDominio, RecursoNoEncontrado
 from app.domain.estados import EstadoRegistro
 from app.domain.imagen import ArchivoImagen, validar_imagenes
-from app.domain.producto import ProductoCreate, ProductoResponse, ProductoUpdate
+from app.domain.producto import (
+    UMBRAL_STOCK_BAJO,
+    ProductoCreate,
+    ProductoResponse,
+    ProductoUpdate,
+    StockResponse,
+    StockUpdate,
+)
 from app.repository.producto_repository import ProductoRepository
 from app.service.almacenamiento_service import (
     AlmacenamientoCloudinary,
@@ -84,6 +91,33 @@ class ProductoService:
         eliminado = self._repositorio.eliminar(producto_id)
         self._borrar_sin_fallar(eliminado["imagenes"])
         return self._a_respuesta(eliminado)
+
+    def actualizar_stock(self, producto_id: int, datos: StockUpdate) -> StockResponse:
+        """Reemplaza el stock o le aplica un ajuste; nunca puede quedar negativo (RN-16)."""
+        producto = self._repositorio.obtener_por_id(producto_id)
+        if producto is None:
+            raise RecursoNoEncontrado("El producto no existe", {"producto_id": producto_id})
+        self._empresas.verificar_aprobada(producto["empresa_id"])
+
+        stock_anterior = producto["stock"]
+        if datos.cantidad is not None:
+            stock_nuevo = datos.cantidad
+        else:
+            stock_nuevo = stock_anterior + datos.ajuste
+            if stock_nuevo < 0:
+                raise DatosInvalidos(
+                    "El stock no puede quedar negativo",
+                    {"producto_id": producto_id, "stock_actual": stock_anterior, "ajuste": datos.ajuste},
+                )
+
+        self._repositorio.actualizar(producto_id, {"stock": stock_nuevo})
+        return StockResponse(
+            producto_id=producto_id,
+            nombre=producto["nombre"],
+            stock_anterior=stock_anterior,
+            stock_actual=stock_nuevo,
+            alerta_stock_bajo=stock_nuevo < UMBRAL_STOCK_BAJO,
+        )
 
     def _buscar_de_empresa(self, empresa_id: int, producto_id: int) -> dict:
         """Un producto de otra empresa se trata como inexistente."""
