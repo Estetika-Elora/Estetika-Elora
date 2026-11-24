@@ -1,4 +1,4 @@
-"""Dominio de Sede (HU-16): schemas de entrada y salida con sus validaciones."""
+"""Dominio de Sede (HU-16, HU-20): schemas de entrada y salida con sus validaciones."""
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -98,3 +98,19 @@ class SedeResponse(BaseModel):
     estado: EstadoRegistro
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SedeEstadoUpdate(BaseModel):
+    """Nuevo estado de la sede: ACTIVE la publica para reservar e INACTIVE la retira."""
+
+    estado: EstadoRegistro
+
+    model_config = ConfigDict(json_schema_extra={"example": {"estado": "INACTIVE"}})
+
+
+class SedeEstadoResponse(BaseModel):
+    """Resultado de activar o desactivar una sede."""
+
+    sede_id: int
+    estado: EstadoRegistro
+    reservas_futuras: int

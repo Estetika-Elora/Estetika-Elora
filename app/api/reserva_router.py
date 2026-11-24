@@ -26,6 +26,7 @@ from app.service.reserva_service import ReservaService
 router = APIRouter(prefix="/api/v1/reservas", tags=["Reservas (HU-36, HU-37)"])
 
 servicio = ReservaService(reserva_repository, disponibilidad, sedes, usuarios, crear_servicio_correo())
+sedes.registrar_contador_reservas(servicio.contar_futuras)
 
 
 def _error(descripcion: str, mensaje: str, data: dict) -> dict:
@@ -86,7 +87,7 @@ def _error(descripcion: str, mensaje: str, data: dict) -> dict:
             {"fecha": "05-11-2026"},
         ),
         404: _error(
-            "El servicio no existe o no se ofrece en la sede indicada",
+            "La sede no existe o no está activa, o el servicio no existe o no se ofrece en ella",
             "El servicio no se ofrece en la sede indicada",
             {"servicio_id": 9, "sede_id": 45},
         ),
@@ -135,7 +136,8 @@ def consultar_disponibilidad(
             {"usuario_id": 125},
         ),
         404: _error(
-            "El usuario no existe, o el servicio no se ofrece en la sede indicada",
+            "El usuario no existe, la sede no existe o no está activa, o el servicio no se "
+            "ofrece en la sede indicada",
             "El servicio no se ofrece en la sede indicada",
             {"servicio_id": 9, "sede_id": 45},
         ),

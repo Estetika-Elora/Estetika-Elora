@@ -1,4 +1,4 @@
-"""Endpoints de sedes (HU-16). Solo llaman al servicio y convierten errores en HTTP.
+"""Endpoints de sedes (HU-16) y de su estado (HU-20). Solo llaman al servicio y convierten errores en HTTP.
 
 Aquí también se arman los servicios de sedes y de disponibilidad (HU-23) y se conectan
 entre sí, para que guardar el horario de una sede (HU-17) regenere sus horarios.
@@ -8,9 +8,15 @@ import os
 
 from fastapi import APIRouter, status
 
-from app.api.respuestas import RESPUESTAS_ERROR, RespuestaApi, a_http
+from app.api.respuestas import RESPUESTAS_ERROR, RespuestaApi, RespuestaError, a_http
 from app.domain.errores import ErrorDominio
-from app.domain.sede import SedeCreate, SedeResponse, SedeUpdate
+from app.domain.sede import (
+    SedeCreate,
+    SedeEstadoResponse,
+    SedeEstadoUpdate,
+    SedeResponse,
+    SedeUpdate,
+)
 from app.repository.bloque_horario_repository import bloque_horario_repository
 from app.repository.empresa_repository import empresa_repository
 from app.repository.sede_repository import sede_repository
@@ -22,6 +28,7 @@ from app.service.sede_service import SedeService
 from app.service.servicio_service import ServicioService
 
 router = APIRouter(prefix="/api/v1/empresas/{empresa_id}/sedes", tags=["Sedes (HU-16)"])
+router_sede = APIRouter(prefix="/api/v1/sedes", tags=["Sedes (HU-20)"])
 
 servicio = SedeService(
     sede_repository,
@@ -111,3 +118,38 @@ def eliminar_sede(empresa_id: int, sede_id: int):
     except ErrorDominio as error:
         raise a_http(error) from error
     return RespuestaApi(message="Sede eliminada correctamente", data=sede)
+
+
+@router_sede.patch(
+    "/{sede_id}/estado",
+    response_model=RespuestaApi[SedeEstadoResponse],
+    responses={
+        **RESPUESTAS_ERROR,
+        409: {
+            "model": RespuestaError,
+            "description": "La sede tiene reservas futuras confirmadas (RN-10) o ya está en ese estado",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "No se puede desactivar la sede porque tiene reservas futuras confirmadas",
+                        "data": {"sede_id": 41, "reservas_futuras": 3},
+                        "success": False,
+                    }
+                }
+            },
+        },
+    },
+    summary="Activar o desactivar una sede",
+    description=(
+        "INACTIVE retira la sede: no se puede consultar su disponibilidad ni reservar en ella. "
+        "No se permite desactivarla si tiene reservas futuras confirmadas (RN-10, API-I18). "
+        "ACTIVE la vuelve a publicar y regenera sus horarios disponibles (API-I19). "
+        "Solo empresas aprobadas (RN-07)."
+    ),
+)
+def cambiar_estado_sede(sede_id: int, datos: SedeEstadoUpdate):
+    try:
+        resultado = servicio.cambiar_estado(sede_id, datos)
+    except ErrorDominio as error:
+        raise a_http(error) from error
+    return RespuestaApi(message="Estado de la sede actualizado", data=resultado)
