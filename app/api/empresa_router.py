@@ -14,7 +14,7 @@ from app.repository.empresa_repository import empresa_repository
 from app.service.correo_service import crear_servicio_correo
 from app.service.empresa_service import EmpresaService
 
-router = APIRouter(prefix="/api/v1/empresas", tags=["Empresas (HU-11)"])
+router = APIRouter(prefix="/api/v1")
 
 servicio = EmpresaService(
     repositorio=empresa_repository,
@@ -28,7 +28,8 @@ RESPUESTAS_EMPRESA = {
 
 
 @router.post(
-    "",
+    "/empresas",
+    tags=["Empresas (HU-11)"],
     status_code=status.HTTP_201_CREATED,
     response_model=RespuestaApi[EmpresaResponse],
     responses=RESPUESTAS_EMPRESA,
@@ -51,7 +52,8 @@ def crear_empresa(datos: EmpresaCreate):
 
 
 @router.get(
-    "",
+    "/empresas",
+    tags=["Empresas (HU-11)"],
     response_model=RespuestaApi[list[EmpresaResponse]],
     responses=RESPUESTAS_ERROR,
     summary="Obtener todas las empresas",
@@ -66,7 +68,8 @@ def listar_empresas():
 
 
 @router.get(
-    "/{empresa_id}",
+    "/empresas/{empresa_id}",
+    tags=["Empresas (HU-11)"],
     response_model=RespuestaApi[EmpresaResponse],
     responses=RESPUESTAS_ERROR,
     summary="Obtener empresa por ID",
@@ -86,7 +89,8 @@ def obtener_empresa(empresa_id: int):
 
 
 @router.put(
-    "/{empresa_id}/politica-cancelacion",
+    "/empresas/{empresa_id}/politica-cancelacion",
+    tags=["Empresas (HU-11)"],
     response_model=RespuestaApi[PoliticaCancelacionResponse],
     responses=RESPUESTAS_ERROR,
     summary="Configurar la política de cancelación de la empresa",

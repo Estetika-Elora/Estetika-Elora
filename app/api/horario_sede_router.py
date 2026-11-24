@@ -11,7 +11,7 @@ from app.api.sede_router import servicio
 from app.domain.errores import ErrorDominio
 from app.domain.horario import HorarioResponse, HorarioUpdate
 
-router = APIRouter(prefix="/api/v1/sedes/{sede_id}/horario", tags=["Horario de sede (HU-17)"])
+router = APIRouter(prefix="/api/v1")
 
 
 def _error(descripcion: str, mensaje: str, data: dict) -> dict:
@@ -26,7 +26,8 @@ _ERROR_404 = _error("La sede no existe", "La sede no existe", {"sede_id": 99})
 
 
 @router.put(
-    "",
+    "/sedes/{sede_id}/horario",
+    tags=["Horario de sede (HU-17)"],
     response_model=RespuestaApi[HorarioResponse],
     responses={
         400: _error(
@@ -59,7 +60,8 @@ def configurar_horario(sede_id: int, datos: HorarioUpdate):
 
 
 @router.get(
-    "",
+    "/sedes/{sede_id}/horario",
+    tags=["Horario de sede (HU-17)"],
     response_model=RespuestaApi[HorarioResponse],
     response_model_exclude_none=True,
     responses={404: _ERROR_404},
