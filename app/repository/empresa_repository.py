@@ -67,6 +67,14 @@ class EmpresaRepository:
             self._siguiente_id += 1
             return copy.deepcopy(nueva_empresa)
 
+    def actualizar(self, empresa_id: int, cambios: dict) -> dict | None:
+        with self._candado:
+            for empresa in self._empresas:
+                if empresa["empresa_id"] == empresa_id:
+                    empresa.update(copy.deepcopy(cambios))
+                    return copy.deepcopy(empresa)
+        return None
+
     def eliminar(self, empresa_id: int) -> dict | None:
         """Elimina una empresa creada si debe revertirse una operación fallida."""
         with self._candado:
