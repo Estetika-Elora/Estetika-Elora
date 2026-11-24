@@ -13,26 +13,38 @@
    tiempo, el repositorio la rechaza y también responde 409 (RN-21).
 4. Enviar el correo de confirmación (API-E03). Si el correo falla, la reserva se conserva y
    la respuesta lo indica con `correo_enviado = false`.
+
+`consultar_historial` (HU-05 · PRO-05):
+1. Verificar que la cuenta exista (API-I04); si no, 404.
+2. Validar el rango de fechas opcional; formato inválido o rango invertido responde 400.
+3. Pedir las reservas del usuario (API-I11), filtrarlas por el rango y ordenarlas de la más
+   reciente a la más antigua, con el nombre de la sede y del servicio de cada una.
 """
 
 from datetime import date, datetime
 from typing import Callable
 
-from app.domain.errores import RecursoDuplicado, ServicioExternoNoDisponible
+from app.domain.errores import RecursoDuplicado, RecursoNoEncontrado, ServicioExternoNoDisponible
 from app.domain.reserva import (
     MENSAJE_HORARIO_NO_DISPONIBLE,
+    NOMBRE_NO_DISPONIBLE,
     DisponibilidadResponse,
     EstadoReserva,
+    HistorialItem,
+    HistorialResponse,
     ReservaCreate,
     ReservaResponse,
     filtrar_horarios_libres,
+    filtrar_y_ordenar_historial,
     leer_fecha_consulta,
+    leer_rango_historial,
     verificar_puede_reservar,
 )
 from app.repository.reserva_repository import ReservaRepository
 from app.service.disponibilidad_service import DisponibilidadService
 from app.service.plantillas_correo import correo_reserva_confirmada
 from app.service.sede_service import SedeService
+from app.service.servicio_service import ServicioService
 from app.service.usuario_service import ServicioCorreo, UsuarioService
 
 
@@ -44,6 +56,7 @@ class ReservaService:
         sedes: SedeService,
         usuarios: UsuarioService,
         correo: ServicioCorreo,
+        servicios: ServicioService,
         reloj: Callable[[], datetime] = datetime.now,
     ) -> None:
         self._repositorio = repositorio
@@ -51,6 +64,7 @@ class ReservaService:
         self._sedes = sedes
         self._usuarios = usuarios
         self._correo = correo
+        self._servicios = servicios
         self._reloj = reloj
 
     def consultar_disponibilidad(self, sede_id: int, servicio_id: int, fecha: str) -> DisponibilidadResponse:
@@ -89,6 +103,30 @@ class ReservaService:
             correo_enviado=self._enviar_confirmacion(usuario, reserva, nombre_sede, nombre_servicio),
         )
 
+    def consultar_historial(
+        self, usuario_id: int, desde: str | None, hasta: str | None
+    ) -> HistorialResponse:
+        self._usuarios.obtener_cuenta(usuario_id)
+        inicio, fin = leer_rango_historial(desde, hasta)
+        reservas = filtrar_y_ordenar_historial(
+            self._repositorio.listar_por_usuario(usuario_id), inicio, fin
+        )
+
+        sedes: dict[int, str] = {}
+        servicios: dict[int, str] = {}
+        items = [
+            HistorialItem(
+                reserva_id=r["reserva_id"],
+                sede=self._nombre(sedes, r["sede_id"], self._sedes.obtener_nombre),
+                servicio=self._nombre(servicios, r["servicio_id"], self._nombre_servicio),
+                fecha=r["fecha"],
+                hora=r["hora"],
+                estado=r["estado"],
+            )
+            for r in reservas
+        ]
+        return HistorialResponse(usuario_id=usuario_id, total=len(items), reservas=items)
+
     def contar_futuras(self, sede_id: int) -> int:
         """API-I18: reservas confirmadas de la sede que todavía no han pasado."""
         return self._repositorio.contar_futuras_confirmadas(sede_id, self._reloj())
@@ -123,6 +161,19 @@ class ReservaService:
         except ServicioExternoNoDisponible:
             return False
         return True
+
+    def _nombre_servicio(self, servicio_id: int) -> str:
+        return self._servicios.obtener(servicio_id)["nombre"]
+
+    @staticmethod
+    def _nombre(cache: dict[int, str], clave: int, buscar: Callable[[int], str]) -> str:
+        """Nombre de una sede o servicio; si ya no existe se muestra como no disponible."""
+        if clave not in cache:
+            try:
+                cache[clave] = buscar(clave)
+            except RecursoNoEncontrado:
+                cache[clave] = NOMBRE_NO_DISPONIBLE
+        return cache[clave]
 
     @staticmethod
     def _datos_horario(datos: ReservaCreate) -> dict:
