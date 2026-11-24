@@ -27,8 +27,7 @@ from app.service.mapas_service import MapasService
 from app.service.sede_service import SedeService
 from app.service.servicio_service import ServicioService
 
-router = APIRouter(prefix="/api/v1/empresas/{empresa_id}/sedes", tags=["Sedes (HU-16)"])
-router_sede = APIRouter(prefix="/api/v1/sedes", tags=["Sedes (HU-20)"])
+router = APIRouter(prefix="/api/v1")
 
 servicio = SedeService(
     sede_repository,
@@ -42,7 +41,8 @@ servicio.registrar_regenerador(disponibilidad.regenerar_sede)
 
 
 @router.post(
-    "",
+    "/empresas/{empresa_id}/sedes",
+    tags=["Sedes (HU-16)"],
     status_code=status.HTTP_201_CREATED,
     response_model=RespuestaApi[SedeResponse],
     responses=RESPUESTAS_ERROR,
@@ -61,7 +61,8 @@ def crear_sede(empresa_id: int, datos: SedeCreate):
 
 
 @router.get(
-    "",
+    "/empresas/{empresa_id}/sedes",
+    tags=["Sedes (HU-16)"],
     response_model=RespuestaApi[list[SedeResponse]],
     responses={404: RESPUESTAS_ERROR[404]},
     summary="Listar las sedes de una empresa",
@@ -75,7 +76,8 @@ def listar_sedes(empresa_id: int):
 
 
 @router.get(
-    "/{sede_id}",
+    "/empresas/{empresa_id}/sedes/{sede_id}",
+    tags=["Sedes (HU-16)"],
     response_model=RespuestaApi[SedeResponse],
     responses={404: RESPUESTAS_ERROR[404]},
     summary="Consultar una sede",
@@ -89,7 +91,8 @@ def obtener_sede(empresa_id: int, sede_id: int):
 
 
 @router.put(
-    "/{sede_id}",
+    "/empresas/{empresa_id}/sedes/{sede_id}",
+    tags=["Sedes (HU-16)"],
     response_model=RespuestaApi[SedeResponse],
     responses=RESPUESTAS_ERROR,
     summary="Editar una sede",
@@ -107,7 +110,8 @@ def actualizar_sede(empresa_id: int, sede_id: int, datos: SedeUpdate):
 
 
 @router.delete(
-    "/{sede_id}",
+    "/empresas/{empresa_id}/sedes/{sede_id}",
+    tags=["Sedes (HU-16)"],
     response_model=RespuestaApi[SedeResponse],
     responses={403: RESPUESTAS_ERROR[403], 404: RESPUESTAS_ERROR[404]},
     summary="Eliminar una sede",
@@ -120,8 +124,9 @@ def eliminar_sede(empresa_id: int, sede_id: int):
     return RespuestaApi(message="Sede eliminada correctamente", data=sede)
 
 
-@router_sede.patch(
-    "/{sede_id}/estado",
+@router.patch(
+    "/sedes/{sede_id}/estado",
+    tags=["Sedes (HU-20)"],
     response_model=RespuestaApi[SedeEstadoResponse],
     responses={
         **RESPUESTAS_ERROR,

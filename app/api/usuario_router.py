@@ -12,7 +12,7 @@ from app.repository.usuario_repository import usuario_repository
 from app.service.correo_service import crear_servicio_correo
 from app.service.usuario_service import UsuarioService
 
-router = APIRouter(prefix="/api/v1/usuarios", tags=["Usuarios (HU-01)"])
+router = APIRouter(prefix="/api/v1")
 
 
 def _entero_env(nombre: str, por_defecto: int) -> int:
@@ -47,7 +47,8 @@ _ERROR_503 = _error(
 
 
 @router.post(
-    "/registro",
+    "/usuarios/registro",
+    tags=["Usuarios (HU-01)"],
     status_code=status.HTTP_201_CREATED,
     response_model=RespuestaApi[UsuarioResponse],
     responses={
@@ -80,7 +81,8 @@ def registrar_usuario(datos: UsuarioCreate):
 
 
 @router.get(
-    "/verificar",
+    "/usuarios/verificar",
+    tags=["Usuarios (HU-01)"],
     response_model=RespuestaApi[UsuarioResponse],
     responses={
         400: _error(
@@ -104,7 +106,8 @@ def verificar_correo(token: str = Query(..., description="Token recibido en el e
 
 
 @router.post(
-    "/reenviar-verificacion",
+    "/usuarios/reenviar-verificacion",
+    tags=["Usuarios (HU-01)"],
     response_model=RespuestaApi[ReenvioResponse],
     responses={
         400: _error("El correo no tiene un formato válido", "El correo no tiene un formato válido", {"correo": "laura"}),
