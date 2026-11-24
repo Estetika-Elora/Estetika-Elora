@@ -1,8 +1,8 @@
 """Repositorio de reservas en memoria (lista de diccionarios).
 
 Cada reserva es {"reserva_id", "usuario_id", "sede_id", "servicio_id", "fecha", "hora",
-"estado", "creada_en"}. Los identificadores empiezan en 1050 para coincidir con los casos de
-prueba de la HU-37.
+"estado", "creada_en"} y, al cerrarse (HU-40), "cerrada_en". Los identificadores empiezan
+en 1050 para coincidir con los casos de prueba de la HU-37.
 """
 
 import copy
@@ -35,6 +35,24 @@ class ReservaRepository:
             self._reservas.append(reserva)
             self._siguiente_id += 1
             return copy.deepcopy(reserva)
+
+    def obtener_por_id(self, reserva_id: int) -> dict | None:
+        for reserva in self._reservas:
+            if reserva["reserva_id"] == reserva_id:
+                return copy.deepcopy(reserva)
+        return None
+
+    def cerrar(self, reserva_id: int, estado: EstadoReserva, cerrada_en: datetime) -> dict | None:
+        """Cambia el estado solo si la reserva sigue CONFIRMED. Devuelve None si ya no lo está,
+        para que dos cierres al mismo tiempo no se pisen."""
+        with self._candado:
+            for reserva in self._reservas:
+                if reserva["reserva_id"] == reserva_id:
+                    if reserva["estado"] != EstadoReserva.CONFIRMED:
+                        return None
+                    reserva.update({"estado": estado, "cerrada_en": cerrada_en})
+                    return copy.deepcopy(reserva)
+        return None
 
     def listar_confirmadas(self, sede_id: int, servicio_id: int, fecha: date) -> list[dict]:
         return [
