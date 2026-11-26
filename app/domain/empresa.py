@@ -1,4 +1,4 @@
-"""Dominio de Empresa (HU-11, HU-16, HU-19 y HU-31).
+"""Dominio de Empresa (HU-11, HU-14, HU-16, HU-19 y HU-31).
 
 Define los estados, las reglas de publicación y los contratos de entrada/salida
 que utiliza el módulo de empresas.
@@ -11,7 +11,7 @@ from enum import Enum
 from email_validator import EmailNotValidError, validate_email
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from app.domain.validaciones import limpiar_texto
+from app.domain.validaciones import limpiar_texto, validar_telefono
 
 HORAS_MINIMAS_ANTELACION_MIN = 1
 HORAS_MINIMAS_ANTELACION_MAX = 72
@@ -29,12 +29,14 @@ def puede_publicar(estado: EstadoEmpresa) -> bool:
     return estado == EstadoEmpresa.APPROVED
 
 
-def normalizar_correo_empresa(valor: str) -> str:
-    """Valida el correo del representante y lo normaliza en minúsculas."""
+def normalizar_correo_empresa(
+    valor: str, mensaje: str = "El correo del representante no tiene un formato válido"
+) -> str:
+    """Valida un correo de la empresa y lo normaliza en minúsculas."""
     try:
         resultado = validate_email(valor.strip(), check_deliverability=False)
     except EmailNotValidError as error:
-        raise ValueError("El correo del representante no tiene un formato válido") from error
+        raise ValueError(mensaje) from error
     return resultado.normalized.lower()
 
 
@@ -100,6 +102,48 @@ class EmpresaResponse(BaseModel):
     estado: EstadoEmpresa
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EmpresaUpdate(BaseModel):
+    """Datos para editar el perfil comercial de una empresa (HU-14). Todos son opcionales.
+
+    `nit` y `razon_social` no se pueden modificar: se reciben solo para que el servicio
+    rechace el intento de cambiarlos.
+    """
+
+    nit: str | None = None
+    razon_social: str | None = None
+    descripcion: str | None = None
+    telefono: str | None = None
+    correo_contacto: str | None = None
+
+    @field_validator("descripcion")
+    @classmethod
+    def validar_descripcion(cls, valor: str | None) -> str | None:
+        return None if valor is None else limpiar_texto(valor, "descripcion", 10, 500)
+
+    @field_validator("telefono")
+    @classmethod
+    def validar_telefono_empresa(cls, valor: str | None) -> str | None:
+        return None if valor is None else validar_telefono(valor)
+
+    @field_validator("correo_contacto")
+    @classmethod
+    def validar_correo_contacto(cls, valor: str | None) -> str | None:
+        if valor is None:
+            return None
+        return normalizar_correo_empresa(valor, "El correo de contacto no tiene un formato válido")
+
+
+class EmpresaPerfilResponse(BaseModel):
+    """Perfil comercial de la empresa devuelto al editarla (HU-14)."""
+
+    empresa_id: int
+    razon_social: str
+    descripcion: str | None = None
+    telefono: str | None = None
+    correo_contacto: str | None = None
+    logo_url: str | None = None
 
 
 class PoliticaCancelacionUpdate(BaseModel):
