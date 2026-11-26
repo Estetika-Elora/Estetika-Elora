@@ -1,4 +1,4 @@
-"""Reglas de las imágenes que se suben a la plataforma (HU-31)."""
+"""Reglas de las imágenes que se suben a la plataforma (HU-14 y HU-31)."""
 
 from dataclasses import dataclass
 
@@ -37,13 +37,16 @@ def _firma_coincide(tipo_contenido: str, contenido: bytes) -> bool:
     return False
 
 
-def validar_imagenes(imagenes: list[ArchivoImagen], obligatorio: bool) -> None:
-    """Valida cantidad, formato y tamaño de las imágenes antes de subir cualquiera."""
+def validar_imagenes(imagenes: list[ArchivoImagen], obligatorio: bool, recurso: str = "producto") -> None:
+    """Valida cantidad, formato y tamaño de las imágenes antes de subir cualquiera.
+
+    `recurso` es el nombre que aparece en los mensajes de error (producto, logo).
+    """
     if obligatorio and not imagenes:
-        raise DatosInvalidos("Debe enviar al menos una imagen del producto", {"imagenes": 0})
+        raise DatosInvalidos(f"Debe enviar al menos una imagen del {recurso}", {"imagenes": 0})
     if len(imagenes) > MAXIMO_IMAGENES:
         raise DatosInvalidos(
-            f"Solo se permiten {MAXIMO_IMAGENES} imágenes por producto",
+            f"Solo se permiten {MAXIMO_IMAGENES} imágenes por {recurso}",
             {"imagenes": len(imagenes)},
         )
     for imagen in imagenes:
