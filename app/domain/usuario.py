@@ -1,11 +1,14 @@
-"""Dominio de Usuario (HU-01): schemas de entrada y salida, estados, roles y reglas.
+"""Dominio de Usuario (HU-01, HU-03): schemas de entrada y salida, estados, roles y reglas.
 
 Reglas de negocio:
 - RN-01: el correo es único en la plataforma (se valida en el servicio).
 - RN-02: la contraseña tiene mínimo 8 caracteres, una mayúscula y un número.
+- HU-03: el código de recuperación tiene 6 dígitos, vence a los 15 minutos, sirve una sola
+  vez y se invalida tras 5 intentos fallidos.
 """
 
 import re
+from datetime import datetime
 from enum import Enum
 
 from email_validator import EmailNotValidError, validate_email
@@ -34,6 +37,9 @@ class Rol(str, Enum):
 
 CONTRASENA_LONGITUD_MINIMA = 8
 CONTRASENA_LONGITUD_MAXIMA = 64
+DIGITOS_CODIGO_RECUPERACION = 6
+MINUTOS_VIGENCIA_CODIGO_RECUPERACION = 15
+MAXIMO_INTENTOS_CODIGO_RECUPERACION = 5
 MENSAJE_POLITICA_CONTRASENA = (
     "La contraseña debe tener mínimo 8 caracteres, una letra mayúscula y un número"
 )
@@ -129,3 +135,59 @@ class UsuarioResponse(BaseModel):
 class ReenvioResponse(BaseModel):
     correo: str
     vigencia_horas: int
+
+
+class SolicitudRecuperacion(BaseModel):
+    """Correo de la cuenta que olvidó la contraseña (HU-03)."""
+
+    correo: str
+
+    model_config = ConfigDict(json_schema_extra={"example": {"correo": "laura.gomez@gmail.com"}})
+
+    @field_validator("correo")
+    @classmethod
+    def validar_correo(cls, valor: str) -> str:
+        return normalizar_correo(valor)
+
+
+class CambioContrasena(BaseModel):
+    """Código recibido en el correo y contraseña nueva, que debe cumplir RN-02 (HU-03)."""
+
+    correo: str
+    codigo: str
+    nueva_contrasena: str
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "correo": "laura.gomez@gmail.com",
+                "codigo": "482913",
+                "nueva_contrasena": "NuevaClave2026",
+            }
+        }
+    )
+
+    @field_validator("correo")
+    @classmethod
+    def validar_correo(cls, valor: str) -> str:
+        return normalizar_correo(valor)
+
+    @field_validator("codigo")
+    @classmethod
+    def limpiar_codigo(cls, valor: str) -> str:
+        return valor.strip()
+
+    @field_validator("nueva_contrasena")
+    @classmethod
+    def validar_nueva_contrasena(cls, valor: str) -> str:
+        return validar_contrasena(valor)
+
+
+class RecuperacionResponse(BaseModel):
+    correo: str
+    vigencia_minutos: int
+
+
+class ContrasenaActualizadaResponse(BaseModel):
+    correo: str
+    fecha_cambio: datetime
