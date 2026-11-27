@@ -67,6 +67,56 @@ def correo_activacion(destinatario: str, nombre: str, enlace: str, vigencia_hora
     )
 
 
+def correo_recuperacion_contrasena(destinatario: str, nombre: str, codigo: str, vigencia_minutos: int) -> Correo:
+    primer_nombre = nombre.split()[0]
+    nombre_html = escape(primer_nombre)
+    codigo_html = escape(codigo)
+
+    html = f"""\
+<!doctype html>
+<html lang="es">
+<body style="margin:0;padding:0;background:{COLOR_FONDO};font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{COLOR_FONDO};padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:{COLOR_MARCA};padding:24px;text-align:center;color:#ffffff;font-size:24px;font-weight:bold;letter-spacing:1px;">
+          Estetika Elora
+        </td></tr>
+        <tr><td style="padding:32px 32px 8px;color:#333333;font-size:16px;line-height:1.6;">
+          <p style="margin:0 0 16px;font-size:20px;font-weight:bold;color:{COLOR_MARCA_OSCURO};">¡Hola, {nombre_html}!</p>
+          <p style="margin:0 0 24px;">Recibimos una solicitud para restablecer la contraseña de tu cuenta. Usa este código para definir una contraseña nueva:</p>
+        </td></tr>
+        <tr><td align="center" style="padding:0 32px 24px;">
+          <div style="display:inline-block;background:{COLOR_FONDO};color:{COLOR_MARCA_OSCURO};font-size:32px;font-weight:bold;letter-spacing:8px;padding:16px 32px;border-radius:8px;">{codigo_html}</div>
+        </td></tr>
+        <tr><td style="padding:0 32px 32px;color:#555555;font-size:14px;line-height:1.6;">
+          <p style="margin:0 0 16px;">Este código vence en {vigencia_minutos} minutos y solo se puede usar una vez.</p>
+          <p style="margin:0;color:#888888;">Si no solicitaste este cambio, ignora este mensaje: tu contraseña actual sigue funcionando.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+    texto = (
+        f"¡Hola, {primer_nombre}!\n\n"
+        "Recibimos una solicitud para restablecer la contraseña de tu cuenta en Estetika Elora. "
+        "Usa este código para definir una contraseña nueva:\n\n"
+        f"{codigo}\n\n"
+        f"Este código vence en {vigencia_minutos} minutos y solo se puede usar una vez.\n"
+        "Si no solicitaste este cambio, ignora este mensaje: tu contraseña actual sigue funcionando."
+    )
+
+    return Correo(
+        destinatario=destinatario,
+        nombre_destinatario=nombre,
+        asunto="Código para restablecer tu contraseña en Estetika Elora",
+        html=html,
+        texto=texto,
+    )
+
+
 def correo_reserva_confirmada(
     destinatario: str, nombre: str, reserva_id: int, sede: str, servicio: str, fecha: str, hora: str
 ) -> Correo:

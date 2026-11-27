@@ -1,4 +1,4 @@
-"""Endpoints de usuarios (HU-01). Solo llaman al servicio y convierten errores en HTTP."""
+"""Endpoints de usuarios (HU-01, HU-03). Solo llaman al servicio y convierten errores en HTTP."""
 
 import os
 
@@ -6,10 +6,24 @@ from fastapi import APIRouter, Query, status
 
 from app.api.respuestas import RespuestaApi, RespuestaError, a_http
 from app.domain.errores import ErrorDominio
-from app.domain.usuario import ReenvioResponse, SolicitudReenvio, UsuarioCreate, UsuarioResponse
+from app.domain.usuario import (
+    CambioContrasena,
+    ContrasenaActualizadaResponse,
+    RecuperacionResponse,
+    ReenvioResponse,
+    SolicitudReenvio,
+    SolicitudRecuperacion,
+    UsuarioCreate,
+    UsuarioResponse,
+)
+from app.repository.codigo_recuperacion_repository import codigo_recuperacion_repository
 from app.repository.token_verificacion_repository import token_verificacion_repository
 from app.repository.usuario_repository import usuario_repository
 from app.service.correo_service import crear_servicio_correo
+from app.service.recuperacion_contrasena_service import (
+    MENSAJE_CODIGO_INVALIDO,
+    RecuperacionContrasenaService,
+)
 from app.service.usuario_service import UsuarioService
 
 router = APIRouter(prefix="/api/v1")
@@ -22,12 +36,20 @@ def _entero_env(nombre: str, por_defecto: int) -> int:
         return por_defecto
 
 
+correo = crear_servicio_correo()
+
 servicio = UsuarioService(
     usuario_repository,
     token_verificacion_repository,
-    crear_servicio_correo(),
+    correo,
     os.getenv("PUBLIC_BASE_URL", "http://localhost:8000"),
     vigencia_horas=_entero_env("TOKEN_VERIFICACION_HORAS", 24),
+)
+
+servicio_recuperacion = RecuperacionContrasenaService(
+    usuario_repository,
+    codigo_recuperacion_repository,
+    correo,
 )
 
 
@@ -137,3 +159,59 @@ def reenviar_verificacion(datos: SolicitudReenvio):
     except ErrorDominio as error:
         raise a_http(error) from error
     return RespuestaApi(message="Se envió un nuevo enlace de activación a su correo", data=resultado)
+
+
+@router.post(
+    "/usuarios/recuperar-contrasena",
+    tags=["Usuarios (HU-03)"],
+    response_model=RespuestaApi[RecuperacionResponse],
+    responses={
+        400: _error("El correo no tiene un formato válido", "El correo no tiene un formato válido", {"correo": "laura"}),
+        503: _ERROR_503,
+    },
+    summary="Solicitar un código para recuperar la contraseña",
+    description=(
+        "Envía al correo un código de 6 dígitos de un solo uso que vence en 15 minutos (API-E03). "
+        "Solo las cuentas ACTIVE reciben el código, y cada solicitud nueva deja sin efecto los "
+        "códigos anteriores. Para no revelar qué correos están registrados, la respuesta es la "
+        "misma exista o no la cuenta; si se pide otro código antes de 60 segundos no se envía "
+        "nada. Si el correo no se puede enviar, el código no se guarda (503)."
+    ),
+)
+def solicitar_codigo_recuperacion(datos: SolicitudRecuperacion):
+    try:
+        resultado = servicio_recuperacion.solicitar_codigo(datos.correo)
+    except ErrorDominio as error:
+        raise a_http(error) from error
+    return RespuestaApi(
+        message="Si el correo está registrado, recibirá un código para restablecer la contraseña",
+        data=resultado,
+    )
+
+
+@router.put(
+    "/usuarios/recuperar-contrasena",
+    tags=["Usuarios (HU-03)"],
+    response_model=RespuestaApi[ContrasenaActualizadaResponse],
+    responses={
+        400: _error(
+            "El código no existe, ya se usó, venció o se superaron los 5 intentos; o la contraseña no cumple RN-02",
+            MENSAJE_CODIGO_INVALIDO,
+            {"correo": "laura.gomez@gmail.com"},
+        ),
+    },
+    summary="Cambiar la contraseña con el código del correo",
+    description=(
+        "Recibe el correo, el código de 6 dígitos y la contraseña nueva, que debe tener mínimo "
+        "8 caracteres, una mayúscula y un número (RN-02). Solo sirve el último código enviado, "
+        "dentro de sus 15 minutos y una sola vez; al quinto código erróneo queda invalidado. "
+        "La contraseña se guarda con hash bcrypt y se quita el bloqueo por intentos fallidos "
+        "del login (RN-03)."
+    ),
+)
+def cambiar_contrasena(datos: CambioContrasena):
+    try:
+        resultado = servicio_recuperacion.cambiar_contrasena(datos)
+    except ErrorDominio as error:
+        raise a_http(error) from error
+    return RespuestaApi(message="Contraseña actualizada correctamente", data=resultado)
