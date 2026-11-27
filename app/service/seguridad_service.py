@@ -9,6 +9,7 @@
 """
 
 import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta
 
@@ -32,6 +33,14 @@ def generar_token() -> str:
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def generar_codigo_numerico(digitos: int) -> str:
+    return f"{secrets.randbelow(10**digitos):0{digitos}d}"
+
+
+def coinciden_hashes(hash_a: str, hash_b: str) -> bool:
+    return hmac.compare_digest(hash_a, hash_b)
 
 
 def crear_token_acceso(usuario_id: int, rol: str, secreto: str, emitido_en: datetime, minutos: int) -> str:
